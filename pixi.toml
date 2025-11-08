@@ -1,0 +1,46 @@
+[project]
+name = "sceneweaver"
+description = "A tool for creating videos from YAML specification files"
+authors = ["SceneWeaver Team"]
+channels = ["conda-forge"]
+platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
+
+[tool.pixi.version]
+source = "git"
+
+[dependencies]
+python = ">=3.8"
+pyyaml = ">=6.0"
+platformdirs = ">=4.5.0,<5"
+
+[pypi-dependencies]
+moviepy = ">=2.2.1"
+sceneweaver = { editable = true, path = "." }
+
+[feature.dev.dependencies]
+pytest = ">=7.0"
+pytest-cov = ">=4.0"
+black = ">=22.0"
+flake8 = "*"
+pyflakes = "*"
+pyright = "*"
+ruff = "*"
+
+[feature.build.dependencies]
+setuptools = ">=61.0"
+wheel = "*"
+setuptools-scm = ">=6.2"
+
+[environments]
+default = ["dev"]
+build = ["build"]
+
+[tasks]
+test = "pytest -v"
+flake = "flake8 --ignore=E127,E128,E121,E123,E126,E203,E226,E24,E704,W503,W504 --builtins=_ sceneweaver tests"
+pyflakes = { env = { PYFLAKES_BUILTINS = "_" }, cmd = "pyflakes sceneweaver tests" }
+pyright = "pyright"
+lint = { depends-on = ["flake", "pyflakes", "pyright"] }
+format = "ruff format sceneweaver tests"
+wheel = "python -m build --wheel --outdir dist"
+sceneweaver = "python -m sceneweaver"

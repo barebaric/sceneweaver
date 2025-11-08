@@ -1,8 +1,9 @@
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 from moviepy import VideoFileClip, VideoClip
-from .base_scene import BaseScene
+from ..annotation.base_annotation import BaseAnnotation
 from ..video_settings import VideoSettings
+from .base_scene import BaseScene
 
 
 class VideoScene(BaseScene):
@@ -11,8 +12,9 @@ class VideoScene(BaseScene):
         file: str,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
+        annotations: Optional[List[BaseAnnotation]] = None,
     ):
-        super().__init__("video", id=id, cache=cache)
+        super().__init__("video", id=id, cache=cache, annotations=annotations)
         self.file = file
 
     def prepare(self, base_dir: Path) -> List[Path]:
@@ -29,7 +31,8 @@ class VideoScene(BaseScene):
     ) -> Optional[VideoClip]:
         if not assets:
             return None
-        return VideoFileClip(str(assets[0]))
+        base_clip = VideoFileClip(str(assets[0]))
+        return self._apply_annotations_to_clip(base_clip, settings)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "VideoScene":
@@ -45,8 +48,14 @@ class VideoScene(BaseScene):
             elif isinstance(cache_value, dict):
                 cache_config = cache_value
 
+        annotations = [
+            BaseAnnotation.from_dict(ann, base_dir)
+            for ann in data.get("annotations", [])
+        ]
+
         return cls(
             file=data["file"],
             id=data.get("id"),
             cache=cache_config,
+            annotations=annotations,
         )

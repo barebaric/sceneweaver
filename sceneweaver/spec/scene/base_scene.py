@@ -1,7 +1,9 @@
 from typing import Dict, Any, Optional, List
 from pathlib import Path
-from moviepy import VideoClip
+import numpy as np
+from moviepy import VideoClip, ImageClip, CompositeVideoClip
 from ...errors import ValidationError
+from ..annotation.base_annotation import BaseAnnotation
 from ..video_settings import VideoSettings
 
 
@@ -13,10 +15,12 @@ class BaseScene:
         type: str,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
+        annotations: Optional[List[BaseAnnotation]] = None,
     ):
         self.type = type
         self.id = id
         self.cache = cache
+        self.annotations = annotations or []
 
     def validate(self):
         """Validates the scene's configuration."""
@@ -32,6 +36,25 @@ class BaseScene:
         This method should be overridden by subclasses that use external files.
         """
         return []
+
+    def _apply_annotations_to_clip(
+        self, base_clip: VideoClip, settings: VideoSettings
+    ) -> VideoClip:
+        """Applies the scene's annotations to a rendered clip."""
+        if not self.annotations:
+            return base_clip
+
+        assert settings.width and settings.height
+        canvas_size = (settings.width, settings.height)
+
+        overlay_pil = BaseAnnotation.create_overlay_for_list(
+            canvas_size, self.annotations, settings
+        )
+        annotation_clip = ImageClip(
+            np.array(overlay_pil), transparent=True
+        ).with_duration(base_clip.duration)
+
+        return CompositeVideoClip([base_clip, annotation_clip])
 
     def render(
         self, assets: List[Path], settings: VideoSettings

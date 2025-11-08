@@ -32,11 +32,11 @@ class ImageScene(BaseScene):
         height: Optional[int] = None,
         bg_color: str = "black",
     ):
-        super().__init__("image", id=id, cache=cache)
+        super().__init__("image", id=id, cache=cache, annotations=annotations)
         self.duration = duration
         self.frames = frames
         self.image = image
-        self.annotations = annotations or []
+        # self.annotations is handled by super class
         self.zoom = zoom
         self.stretch = stretch
         self.position = position
@@ -182,25 +182,13 @@ class ImageScene(BaseScene):
         self, img_clip: ImageClip, settings: VideoSettings
     ) -> VideoClip:
         """Renders the scene without a zoom effect."""
-        assert settings.width and settings.height
-        canvas_size = (settings.width, settings.height)
-
         # First, place the image on the canvas.
         background_with_image = self._create_background_with_image(
             img_clip, settings
         )
 
-        # Then, if annotations exist, overlay them on the final canvas.
-        if self.annotations:
-            overlay_pil = BaseAnnotation.create_overlay_for_list(
-                canvas_size, self.annotations, settings
-            )
-            annotation_clip = ImageClip(
-                np.array(overlay_pil), transparent=True
-            ).with_duration(self._calculated_duration)
-            return CompositeVideoClip([background_with_image, annotation_clip])
-        else:
-            return background_with_image
+        # Then, apply annotations to the composited clip.
+        return self._apply_annotations_to_clip(background_with_image, settings)
 
     def render(
         self, assets: List[Path], settings: VideoSettings

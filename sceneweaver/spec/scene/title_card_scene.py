@@ -3,6 +3,7 @@ from pathlib import Path
 from moviepy import TextClip, ColorClip, CompositeVideoClip, VideoClip
 from ...errors import ValidationError
 from ...font import find_font
+from ..annotation.base_annotation import BaseAnnotation
 from ..video_settings import VideoSettings
 from .base_scene import BaseScene
 
@@ -17,8 +18,11 @@ class TitleCardScene(BaseScene):
         font: Optional[str] = None,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
+        annotations: Optional[List[BaseAnnotation]] = None,
     ):
-        super().__init__("title_card", id=id, cache=cache)
+        super().__init__(
+            "title_card", id=id, cache=cache, annotations=annotations
+        )
         self.duration = duration
         self.title = title
         self.subtitle = subtitle
@@ -81,8 +85,10 @@ class TitleCardScene(BaseScene):
             size, color=bg_color_tuple, duration=self.duration
         )
 
-        final_clip = CompositeVideoClip([background, title, subtitle])
-        return final_clip.with_duration(self.duration)
+        base_clip = CompositeVideoClip([background, title, subtitle])
+        final_clip = base_clip.with_duration(self.duration)
+
+        return self._apply_annotations_to_clip(final_clip, settings)
 
     @classmethod
     def from_dict(
@@ -105,6 +111,11 @@ class TitleCardScene(BaseScene):
         if font_identifier:
             validated_font = find_font(font_identifier, base_dir)
 
+        annotations = [
+            BaseAnnotation.from_dict(ann, base_dir)
+            for ann in data.get("annotations", [])
+        ]
+
         instance = cls(
             duration=data.get("duration"),
             title=data.get("title"),
@@ -113,6 +124,7 @@ class TitleCardScene(BaseScene):
             font=validated_font,
             id=data.get("id"),
             cache=cache_config,
+            annotations=annotations,
         )
         instance.validate()
         return instance

@@ -52,8 +52,8 @@ class TitleCardScene(BaseScene):
             text=self.title,
             font=font_to_use,
             font_size=70,
+            margin=(0, 20),
             color="white",
-            method="label",
         ).with_position("center")
 
         subtitle_y_pos = (size[1] / 2) + 70
@@ -62,8 +62,8 @@ class TitleCardScene(BaseScene):
             text=subtitle_text,
             font=font_to_use,
             font_size=40,
+            margin=(0, 20),
             color="lightgrey",
-            method="label",
         ).with_position(("center", subtitle_y_pos))
 
         color_map = {

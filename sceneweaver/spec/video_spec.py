@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+from pathlib import Path
 from ..errors import ValidationError
 from .video_settings import VideoSettings
 from .scene.base_scene import BaseScene
@@ -34,13 +35,14 @@ class VideoSpec:
             scene_ids.add(scene.id)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VideoSpec":
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "VideoSpec":
         settings_data = data.get("settings", {})
         scenes_data = data.get("scenes", [])
 
-        settings = VideoSettings.from_dict(settings_data)
+        settings = VideoSettings.from_dict(settings_data, base_dir)
         scenes = [
-            BaseScene.from_dict(scene_data) for scene_data in scenes_data
+            BaseScene.from_dict(scene_data, base_dir)
+            for scene_data in scenes_data
         ]
 
         instance = cls(settings=settings, scenes=scenes)

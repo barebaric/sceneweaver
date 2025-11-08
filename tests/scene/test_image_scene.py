@@ -6,7 +6,9 @@ from sceneweaver.spec.video_settings import VideoSettings
 from sceneweaver.errors import ValidationError
 
 
-def test_image_scene_creation_and_validation(dummy_image_path: Path):
+def test_image_scene_creation_and_validation(
+    dummy_image_path: Path, base_dir: Path
+):
     """Tests creation and validation logic for ImageScene."""
     # Valid scene with duration
     data = {
@@ -15,7 +17,7 @@ def test_image_scene_creation_and_validation(dummy_image_path: Path):
         "image": str(dummy_image_path),
         "stretch": True,
     }
-    scene = ImageScene.from_dict(data)
+    scene = ImageScene.from_dict(data, base_dir)
     assert scene.duration == 5
     assert scene.stretch is True
 
@@ -26,14 +28,16 @@ def test_image_scene_creation_and_validation(dummy_image_path: Path):
         "image": str(dummy_image_path),
         "stretch": True,
     }
-    scene_frames = ImageScene.from_dict(data_frames)
+    scene_frames = ImageScene.from_dict(data_frames, base_dir)
     assert scene_frames.frames == 150
 
     # Missing both duration and frames should fail
     with pytest.raises(
         ValidationError, match="requires either 'duration' or 'frames'"
     ):
-        ImageScene.from_dict({"id": "img3", "image": "path.png"})
+        ImageScene.from_dict(
+            {"id": "img3", "image": "path.png"}, base_dir=base_dir
+        )
 
 
 def test_image_scene_prepare(base_dir: Path, dummy_image_path: Path):
@@ -57,7 +61,7 @@ def test_image_scene_prepare_missing_file(base_dir: Path):
 
 
 def test_image_scene_render(
-    video_settings: VideoSettings, dummy_image_path: Path
+    video_settings: VideoSettings, dummy_image_path: Path, base_dir: Path
 ):
     """Tests the render method of ImageScene."""
     scene = ImageScene.from_dict(
@@ -66,7 +70,8 @@ def test_image_scene_render(
             "frames": 60,  # 2 seconds at 30 fps
             "image": str(dummy_image_path),
             "stretch": True,
-        }
+        },
+        base_dir=base_dir,
     )
 
     assets = [dummy_image_path]

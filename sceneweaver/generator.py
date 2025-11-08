@@ -22,7 +22,7 @@ class VideoGenerator:
 
         self.spec: VideoSpec
         self.spec_dict: Dict[str, Any]
-        self.spec, self.spec_dict = load_spec(self.spec_path)
+        self.spec, self.spec_dict = load_spec(self.spec_path, self.base_dir)
 
         self.settings: VideoSettings = self.spec.settings
 

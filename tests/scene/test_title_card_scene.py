@@ -1,4 +1,5 @@
 import pytest
+from pathlib import Path
 from moviepy import VideoClip
 
 from sceneweaver.spec.scene import TitleCardScene
@@ -6,11 +7,11 @@ from sceneweaver.spec.video_settings import VideoSettings
 from sceneweaver.errors import ValidationError
 
 
-def test_title_card_creation_and_validation():
+def test_title_card_creation_and_validation(base_dir: Path):
     """Tests successful creation and validation logic for TitleCardScene."""
     # Valid data
     data = {"id": "t1", "duration": 5, "title": "Test Title"}
-    scene = TitleCardScene.from_dict(data)
+    scene = TitleCardScene.from_dict(data, base_dir)
     assert scene.id == "t1"
     assert scene.duration == 5
     assert scene.title == "Test Title"
@@ -20,7 +21,7 @@ def test_title_card_creation_and_validation():
     with pytest.raises(
         ValidationError, match="missing required field: 'duration'"
     ):
-        TitleCardScene.from_dict(invalid_data)
+        TitleCardScene.from_dict(invalid_data, base_dir)
 
 
 def test_title_card_render(video_settings: VideoSettings):

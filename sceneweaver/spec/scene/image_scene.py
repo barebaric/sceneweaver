@@ -108,7 +108,7 @@ class ImageScene(BaseScene):
         annotation_clip = None
         if self.annotations:
             overlay_pil = BaseAnnotation.create_overlay_for_list(
-                img_clip.size, self.annotations
+                img_clip.size, self.annotations, settings
             )
             annotation_clip = ImageClip(
                 np.array(overlay_pil), transparent=True
@@ -193,9 +193,9 @@ class ImageScene(BaseScene):
         return final_clip.with_duration(self._calculated_duration)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ImageScene":
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "ImageScene":
         annotations = [
-            BaseAnnotation.from_dict(ann)
+            BaseAnnotation.from_dict(ann, base_dir)
             for ann in data.get("annotations", [])
         ]
         zoom = ZoomSpec.from_dict(data["zoom"]) if "zoom" in data else None

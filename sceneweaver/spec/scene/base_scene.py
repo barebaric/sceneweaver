@@ -46,7 +46,7 @@ class BaseScene:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BaseScene":
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "BaseScene":
         """Factory method to create specific scene instances."""
         # Local imports to prevent circular dependency issues
         from .title_card_scene import TitleCardScene
@@ -56,11 +56,11 @@ class BaseScene:
 
         scene_type = data.get("type")
         if scene_type == "title_card":
-            return TitleCardScene.from_dict(data)
+            return TitleCardScene.from_dict(data, base_dir)
         if scene_type == "image":
-            return ImageScene.from_dict(data)
+            return ImageScene.from_dict(data, base_dir)
         if scene_type == "video":
-            return VideoScene.from_dict(data)
+            return VideoScene.from_dict(data, base_dir)
         if scene_type == "video-images":
-            return VideoImagesScene.from_dict(data)
+            return VideoImagesScene.from_dict(data, base_dir)
         raise ValidationError(f"Unknown scene type: {scene_type}")

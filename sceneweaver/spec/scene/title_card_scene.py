@@ -2,6 +2,7 @@ from typing import Optional, Dict, Any, List
 from pathlib import Path
 from moviepy import TextClip, ColorClip, CompositeVideoClip, VideoClip
 from ...errors import ValidationError
+from ...font import find_font
 from ..video_settings import VideoSettings
 from .base_scene import BaseScene
 
@@ -13,6 +14,7 @@ class TitleCardScene(BaseScene):
         title: Optional[str],
         subtitle: Optional[str] = None,
         background_color: str = "black",
+        font: Optional[str] = None,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
     ):
@@ -21,6 +23,7 @@ class TitleCardScene(BaseScene):
         self.title = title
         self.subtitle = subtitle
         self.background_color = background_color
+        self.font = font
 
     def validate(self):
         super().validate()
@@ -41,10 +44,13 @@ class TitleCardScene(BaseScene):
         assert settings.width is not None
         assert settings.height is not None
 
+        # Use scene-specific font if available, otherwise use global default
+        font_to_use = self.font if self.font is not None else settings.font
+
         size = (settings.width, settings.height)
         title = TextClip(
             text=self.title,
-            font="DejaVuSans",
+            font=font_to_use,
             font_size=70,
             color="white",
             method="label",
@@ -54,7 +60,7 @@ class TitleCardScene(BaseScene):
         subtitle_text = self.subtitle or ""
         subtitle = TextClip(
             text=subtitle_text,
-            font="DejaVuSans",
+            font=font_to_use,
             font_size=40,
             color="lightgrey",
             method="label",
@@ -79,7 +85,9 @@ class TitleCardScene(BaseScene):
         return final_clip.with_duration(self.duration)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TitleCardScene":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "TitleCardScene":
         cache_config = None
         if "cache" in data:
             cache_value = data["cache"]
@@ -92,11 +100,17 @@ class TitleCardScene(BaseScene):
             elif isinstance(cache_value, dict):
                 cache_config = cache_value
 
+        font_identifier = data.get("font")
+        validated_font = None
+        if font_identifier:
+            validated_font = find_font(font_identifier, base_dir)
+
         instance = cls(
             duration=data.get("duration"),
             title=data.get("title"),
             subtitle=data.get("subtitle"),
             background_color=data.get("background_color", "black"),
+            font=validated_font,
             id=data.get("id"),
             cache=cache_config,
         )

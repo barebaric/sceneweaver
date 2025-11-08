@@ -1,5 +1,8 @@
 from typing import Tuple, Dict, Any, Optional
+from pathlib import Path
 from PIL import ImageDraw, ImageFont, ImageColor
+from ...font import find_font
+from ..video_settings import VideoSettings
 from .base_annotation import BaseAnnotation
 
 
@@ -13,6 +16,7 @@ class TextAnnotation(BaseAnnotation):
         color: str = "white",
         bg_color: str = "black",
         bg_opacity: float = 0.7,
+        font: Optional[str] = None,
     ):
         super().__init__("text")
         if position is None and location is None:
@@ -30,16 +34,22 @@ class TextAnnotation(BaseAnnotation):
         self.color = color
         self.bg_color = bg_color
         self.bg_opacity = bg_opacity
+        self.font = font
 
     def draw(
-        self, draw_context: ImageDraw.ImageDraw, canvas_size: Tuple[int, int]
+        self,
+        draw_context: ImageDraw.ImageDraw,
+        canvas_size: Tuple[int, int],
+        settings: VideoSettings,
     ):
         canvas_width, canvas_height = canvas_size
 
-        try:
-            font = ImageFont.truetype("DejaVuSans.ttf", size=self.fontsize)
-        except IOError:
-            font = ImageFont.load_default(size=self.fontsize)
+        # Use annotation-specific font > global font
+        font_to_use = self.font if self.font is not None else settings.font
+
+        # The font identifier is guaranteed to be valid and resolved
+        # (if it was a path) by the time it's stored in the spec objects.
+        font = ImageFont.truetype(font_to_use, size=self.fontsize)
 
         if self.position:
             pos_pct_x, pos_pct_y = self.position
@@ -78,21 +88,28 @@ class TextAnnotation(BaseAnnotation):
                 rgb_color = ImageColor.getrgb(self.bg_color)
                 opacity = int(255 * self.bg_opacity)
                 fill_color = rgb_color + (opacity,)
-                draw_context.rectangle(
-                    [0, bg_y, canvas_width, bg_y + bg_height], fill=fill_color
-                )
+                rect_coords = [0, bg_y, canvas_width, bg_y + bg_height]
+                draw_context.rectangle(rect_coords, fill=fill_color)
 
             draw_context.text(
                 (text_x, text_y), self.content, font=font, fill=self.color
             )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TextAnnotation":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "TextAnnotation":
         content = data.get("content") or data.get("caption")
         if not content:
             raise ValueError(
                 "Text annotation requires a 'content' or 'caption' field."
             )
+
+        font_identifier = data.get("font")
+        validated_font = None
+        if font_identifier:
+            validated_font = find_font(font_identifier, base_dir)
+
         return cls(
             position=tuple(data["position"]) if "position" in data else None,
             location=data.get("location"),
@@ -101,4 +118,5 @@ class TextAnnotation(BaseAnnotation):
             color=data.get("color", "white"),
             bg_color=data.get("bg_color", "black"),
             bg_opacity=data.get("bg_opacity", 0.7),
+            font=validated_font,
         )

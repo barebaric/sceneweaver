@@ -1,5 +1,7 @@
 from typing import Dict, Any, List, Tuple
+from pathlib import Path
 from PIL import Image, ImageDraw
+from ..video_settings import VideoSettings
 
 
 class BaseAnnotation:
@@ -9,7 +11,10 @@ class BaseAnnotation:
         self.type = type
 
     def draw(
-        self, draw_context: ImageDraw.ImageDraw, canvas_size: Tuple[int, int]
+        self,
+        draw_context: ImageDraw.ImageDraw,
+        canvas_size: Tuple[int, int],
+        settings: VideoSettings,
     ):
         """
         Draws the annotation onto the provided PIL Draw context.
@@ -22,17 +27,22 @@ class BaseAnnotation:
 
     @classmethod
     def create_overlay_for_list(
-        cls, size: Tuple[int, int], annotations: List["BaseAnnotation"]
+        cls,
+        size: Tuple[int, int],
+        annotations: List["BaseAnnotation"],
+        settings: VideoSettings,
     ):
         """Creates a single PIL Image overlay from a list of annotations."""
         overlay = Image.new("RGBA", size, (255, 255, 255, 0))
         draw_context = ImageDraw.Draw(overlay)
         for an in annotations:
-            an.draw(draw_context, size)
+            an.draw(draw_context, size, settings)
         return overlay
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BaseAnnotation":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "BaseAnnotation":
         """Factory method to create specific scene instances."""
         # Local imports to prevent circular dependency issues
         from .highlight_annotation import HighlightAnnotation
@@ -41,9 +51,9 @@ class BaseAnnotation:
 
         ann_type = data.get("type")
         if ann_type == "highlight":
-            return HighlightAnnotation.from_dict(data)
+            return HighlightAnnotation.from_dict(data, base_dir)
         if ann_type == "arrow":
-            return ArrowAnnotation.from_dict(data)
+            return ArrowAnnotation.from_dict(data, base_dir)
         if ann_type == "text":
-            return TextAnnotation.from_dict(data)
+            return TextAnnotation.from_dict(data, base_dir)
         raise ValueError(f"Unknown annotation type: {ann_type}")

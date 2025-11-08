@@ -1,5 +1,7 @@
 from typing import Dict, Any, Optional
+from pathlib import Path
 from ..errors import ValidationError
+from ..font import find_font
 
 
 class VideoSettings:
@@ -9,11 +11,13 @@ class VideoSettings:
         height: Optional[int],
         fps: Optional[int],
         output_file: Optional[str],
+        font: str = "DejaVuSans",
     ):
         self.width = width
         self.height = height
         self.fps = fps
         self.output_file = output_file
+        self.font = font
 
     def validate(self):
         """Validates the video settings."""
@@ -33,12 +37,18 @@ class VideoSettings:
             )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VideoSettings":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "VideoSettings":
+        font_identifier = data.get("font", "DejaVuSans")
+        validated_font = find_font(font_identifier, base_dir)
+
         instance = cls(
             width=data.get("width"),
             height=data.get("height"),
             fps=data.get("fps"),
             output_file=data.get("output_file"),
+            font=validated_font,
         )
         instance.validate()
         return instance

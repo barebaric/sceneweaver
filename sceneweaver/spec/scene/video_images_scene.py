@@ -49,7 +49,9 @@ class VideoImagesScene(BaseScene):
         return ImageSequenceClip([str(p) for p in assets], fps=self.fps)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VideoImagesScene":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "VideoImagesScene":
         cache_config = None
         if "cache" in data:
             cache_value = data["cache"]

@@ -3,7 +3,7 @@ import yaml
 from .spec import VideoSpec
 
 
-def load_spec(spec_path: Path) -> tuple[VideoSpec, dict]:
+def load_spec(spec_path: Path, base_dir: Path) -> tuple[VideoSpec, dict]:
     """
     Loads a video specification from a YAML file.
 
@@ -20,5 +20,5 @@ def load_spec(spec_path: Path) -> tuple[VideoSpec, dict]:
     if not spec_dict:
         raise ValueError("Specification file is empty or invalid.")
 
-    spec = VideoSpec.from_dict(spec_dict)
+    spec = VideoSpec.from_dict(spec_dict, base_dir)
     return spec, spec_dict

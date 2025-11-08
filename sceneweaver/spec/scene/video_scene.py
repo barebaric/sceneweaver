@@ -32,7 +32,7 @@ class VideoScene(BaseScene):
         return VideoFileClip(str(assets[0]))
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "VideoScene":
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "VideoScene":
         cache_config = None
         if "cache" in data:
             cache_value = data["cache"]

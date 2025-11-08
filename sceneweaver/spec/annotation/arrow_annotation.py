@@ -1,5 +1,7 @@
 from typing import Tuple, Dict, Any
+from pathlib import Path
 from PIL import ImageDraw
+from ..video_settings import VideoSettings
 from .base_annotation import BaseAnnotation
 
 
@@ -18,7 +20,10 @@ class ArrowAnnotation(BaseAnnotation):
         self.width = width
 
     def draw(
-        self, draw_context: ImageDraw.ImageDraw, canvas_size: Tuple[int, int]
+        self,
+        draw_context: ImageDraw.ImageDraw,
+        canvas_size: Tuple[int, int],
+        settings: VideoSettings,
     ):
         """Draws the arrow line."""
         canvas_width, canvas_height = canvas_size
@@ -37,7 +42,9 @@ class ArrowAnnotation(BaseAnnotation):
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ArrowAnnotation":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "ArrowAnnotation":
         return cls(
             start=tuple(data["start"]),
             end=tuple(data["end"]),

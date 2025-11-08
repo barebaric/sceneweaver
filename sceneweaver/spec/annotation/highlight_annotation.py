@@ -1,5 +1,7 @@
 from typing import Tuple, Dict, Any
+from pathlib import Path
 from PIL import ImageDraw, ImageColor
+from ..video_settings import VideoSettings
 from .base_annotation import BaseAnnotation
 
 
@@ -16,7 +18,10 @@ class HighlightAnnotation(BaseAnnotation):
         self.opacity = opacity
 
     def draw(
-        self, draw_context: ImageDraw.ImageDraw, canvas_size: Tuple[int, int]
+        self,
+        draw_context: ImageDraw.ImageDraw,
+        canvas_size: Tuple[int, int],
+        settings: VideoSettings,
     ):
         """Draws the highlight rectangle."""
         canvas_width, canvas_height = canvas_size
@@ -39,7 +44,9 @@ class HighlightAnnotation(BaseAnnotation):
         draw_context.rectangle([x1, y1, x2, y2], fill=fill_color)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "HighlightAnnotation":
+    def from_dict(
+        cls, data: Dict[str, Any], base_dir: Path
+    ) -> "HighlightAnnotation":
         return cls(
             rect=tuple(data["rect"]),
             color=data.get("color", "yellow"),

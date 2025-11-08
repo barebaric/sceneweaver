@@ -83,6 +83,125 @@ class ImageScene(BaseScene):
 
         return [absolute_path]
 
+    def _create_background_with_image(
+        self, content_clip: VideoClip, settings: VideoSettings
+    ) -> VideoClip:
+        """
+        Takes a content clip and places it on a canvas according to the
+        scene's stretch, size, and position settings.
+        """
+        assert settings.width and settings.height
+        canvas_size = (settings.width, settings.height)
+
+        if self.stretch:
+            stretched_clip = content_clip.with_effects([Resize(canvas_size)])
+            assert isinstance(stretched_clip, VideoClip)
+            return stretched_clip
+        else:
+            processed_clip = content_clip
+            if self.width or self.height:
+                resize_kwargs = {}
+                if self.width:
+                    resize_kwargs["width"] = (self.width / 100) * canvas_size[
+                        0
+                    ]
+                elif self.height:
+                    resize_kwargs["height"] = (
+                        self.height / 100
+                    ) * canvas_size[1]
+                resized_clip = content_clip.with_effects(
+                    [Resize(**resize_kwargs)]
+                )
+                assert isinstance(resized_clip, VideoClip)
+                processed_clip = resized_clip
+
+            background = ColorClip(
+                canvas_size,
+                color=self.bg_color,
+                duration=self._calculated_duration,
+            )
+            positioned_content = processed_clip.with_position(self.position)
+            return CompositeVideoClip([background, positioned_content])
+
+    def _render_zoomed_scene(
+        self, img_clip: ImageClip, settings: VideoSettings
+    ) -> VideoClip:
+        """Renders the scene with a zoom effect."""
+        assert self.zoom is not None
+        zoom_spec = self.zoom
+        assert (
+            self._calculated_duration is not None
+            and self._calculated_duration > 0
+        )
+
+        def resize_func(t):
+            x1_start, y1_start, w_start, h_start = zoom_spec.start_rect
+            x1_end, y1_end, w_end, h_end = zoom_spec.end_rect
+            progress = t / self._calculated_duration
+            w = w_start + (w_end - w_start) * progress
+            h = h_start + (h_end - h_start) * progress
+            x = x1_start + (x1_end - x1_start) * progress
+            y = y1_start + (y1_end - y1_start) * progress
+            return (x, y, w, h)
+
+        # Apply the crop/zoom effect to the main image clip
+        zoomed_img_clip = img_clip.fx(  # type: ignore
+            Crop,
+            x1=lambda t: resize_func(t)[0],
+            y1=lambda t: resize_func(t)[1],
+            width=lambda t: resize_func(t)[2],
+            height=lambda t: resize_func(t)[3],
+        )
+        assert isinstance(zoomed_img_clip, VideoClip)
+
+        clips_to_composite = [zoomed_img_clip]
+
+        # If annotations exist, apply the *same* crop/zoom and add them
+        if self.annotations:
+            overlay_pil = BaseAnnotation.create_overlay_for_list(
+                img_clip.size, self.annotations, settings
+            )
+            annotation_clip = ImageClip(
+                np.array(overlay_pil), transparent=True
+            ).with_duration(self._calculated_duration)
+
+            zoomed_annotation_clip = annotation_clip.fx(  # type: ignore
+                Crop,
+                x1=lambda t: resize_func(t)[0],
+                y1=lambda t: resize_func(t)[1],
+                width=lambda t: resize_func(t)[2],
+                height=lambda t: resize_func(t)[3],
+            )
+            clips_to_composite.append(zoomed_annotation_clip)
+
+        content_layer = CompositeVideoClip(clips_to_composite)
+
+        return self._create_background_with_image(content_layer, settings)
+
+    def _render_static_scene(
+        self, img_clip: ImageClip, settings: VideoSettings
+    ) -> VideoClip:
+        """Renders the scene without a zoom effect."""
+        assert settings.width and settings.height
+        canvas_size = (settings.width, settings.height)
+
+        # First, place the image on the canvas.
+        background_with_image = self._create_background_with_image(
+            img_clip, settings
+        )
+
+        # Then, if annotations exist, overlay them on the final canvas.
+        if self.annotations:
+            overlay_pil = BaseAnnotation.create_overlay_for_list(
+                canvas_size, self.annotations, settings
+            )
+            annotation_clip = ImageClip(
+                np.array(overlay_pil), transparent=True
+            ).with_duration(self._calculated_duration)
+            return CompositeVideoClip([background_with_image, annotation_clip])
+        else:
+            return background_with_image
+
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
@@ -98,97 +217,15 @@ class ImageScene(BaseScene):
         assert self._calculated_duration is not None
 
         image_path = assets[0]
-        assert settings.width
-        assert settings.height
-        canvas_size = (settings.width, settings.height)
         img_clip = ImageClip(str(image_path)).with_duration(
             self._calculated_duration
         )
 
-        annotation_clip = None
-        if self.annotations:
-            overlay_pil = BaseAnnotation.create_overlay_for_list(
-                img_clip.size, self.annotations, settings
-            )
-            annotation_clip = ImageClip(
-                np.array(overlay_pil), transparent=True
-            ).with_duration(self._calculated_duration)
-
+        final_clip: VideoClip
         if self.zoom:
-            zoom_params = self.zoom
-            assert zoom_params is not None
-            assert self._calculated_duration > 0
-
-            def resize_func(t):
-                x1_start, y1_start, w_start, h_start = zoom_params.start_rect
-                x1_end, y1_end, w_end, h_end = zoom_params.end_rect
-                progress = t / self._calculated_duration
-                w = w_start + (w_end - w_start) * progress
-                h = h_start + (h_end - h_start) * progress
-                x = x1_start + (x1_end - x1_start) * progress
-                y = y1_start + (y1_end - y1_start) * progress
-                return (x, y, w, h)
-
-            img_clip = img_clip.fx(
-                Crop,
-                x1=lambda t: resize_func(t)[0],
-                y1=lambda t: resize_func(t)[1],
-                width=lambda t: resize_func(t)[2],
-                height=lambda t: resize_func(t)[3],
-            )
-
-            if annotation_clip:
-                annotation_clip = annotation_clip.fx(
-                    Crop,
-                    x1=lambda t: resize_func(t)[0],
-                    y1=lambda t: resize_func(t)[1],
-                    width=lambda t: resize_func(t)[2],
-                    height=lambda t: resize_func(t)[3],
-                )
-
-        clips_to_composite = [img_clip]
-        if annotation_clip:
-            clips_to_composite.append(annotation_clip)
-
-        content_layer = CompositeVideoClip(clips_to_composite)
-
-        if self.stretch:
-            # Default behavior: stretch to fill the screen
-            final_clip = content_layer.with_effects([Resize(canvas_size)])
+            final_clip = self._render_zoomed_scene(img_clip, settings)
         else:
-            # Preserve aspect ratio, place on a background, and position
-            resized_content = content_layer
-            if self.width or self.height:
-                # Resize if width or height is specified
-                resize_kwargs = {}
-                if self.width:
-                    resize_kwargs["width"] = (self.width / 100) * canvas_size[
-                        0
-                    ]
-                elif self.height:
-                    resize_kwargs["height"] = (
-                        self.height / 100
-                    ) * canvas_size[1]
-
-                # Apply resize using the original with_effects structure
-                resized_content = content_layer.with_effects(
-                    [Resize(**resize_kwargs)]
-                )
-
-            # If neither width nor height is given, use natural image size
-
-            background = ColorClip(
-                canvas_size,
-                color=self.bg_color,
-                duration=self._calculated_duration,
-            )
-
-            # Position the content layer on the background
-            positioned_content = resized_content.with_position(  # type:ignore
-                self.position
-            )
-
-            final_clip = CompositeVideoClip([background, positioned_content])
+            final_clip = self._render_static_scene(img_clip, settings)
 
         return final_clip.with_duration(self._calculated_duration)
 

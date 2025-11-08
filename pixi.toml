@@ -1,4 +1,4 @@
-[project]
+[workspace]
 name = "sceneweaver"
 description = "A tool for creating videos from YAML specification files"
 authors = ["SceneWeaver Team"]
@@ -16,6 +16,7 @@ platformdirs = ">=4.5.0,<5"
 [pypi-dependencies]
 moviepy = ">=2.2.1"
 sceneweaver = { editable = true, path = "." }
+build = "*"
 
 [feature.dev.dependencies]
 pytest = ">=7.0"
@@ -25,6 +26,7 @@ flake8 = "*"
 pyflakes = "*"
 pyright = "*"
 ruff = "*"
+pre-commit = "*"
 
 [feature.build.dependencies]
 setuptools = ">=61.0"
@@ -42,5 +44,7 @@ pyflakes = { env = { PYFLAKES_BUILTINS = "_" }, cmd = "pyflakes sceneweaver test
 pyright = "pyright"
 lint = { depends-on = ["flake", "pyflakes", "pyright"] }
 format = "ruff format sceneweaver tests"
-wheel = "python -m build --wheel --outdir dist"
 sceneweaver = "python -m sceneweaver"
+
+[tasks.wheel]
+cmd = "python -m build --wheel --outdir dist"

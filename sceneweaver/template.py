@@ -11,19 +11,18 @@ settings:
   audio_recording_path: audio
 
 scenes:
-  - type: title_card
+  - type: svg_template
     id: intro_card
-    # 'duration' is optional if 'audio' is provided. The scene will last
-    # as long as the total composite duration of all audio tracks.
     duration: 5
-    title: My Awesome Video
-    subtitle: A subtitle describing the content
-    # You can override the font for a specific scene
-    # font: Impact
+    # This scene uses the default built-in SVG template.
+    # It renders the parameters below into an SVG for each frame.
+    params:
+      title: My Awesome Video
+      subtitle: A subtitle describing the content
     cache:
       max-size: 1GB
     # To record audio for this scene, run:
-    # sceneweaver scene record-audio spec.yaml
+    # sceneweaver scene audio spec.yaml:intro_card
     audio:
       - file: audio/intro_card.wav
         shift: -0.5 # Start audio 0.5s before scene begins

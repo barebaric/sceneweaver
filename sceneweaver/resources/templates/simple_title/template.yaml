@@ -1,0 +1,6 @@
+- type: svg_template
+  id: {{ id | default('simple_title_scene') }}
+  duration: {{ duration | default(3) }}
+  template: title_only.svg
+  params:
+    title: "{{ title | default('Default Title') }}"

@@ -66,7 +66,7 @@ class VideoGenerator:
 
         # Caching requires a stable scene ID.
         use_cache = scene.cache is not None and not self.force
-        assets = scene.prepare(self.base_dir)
+        assets = scene.prepare()
 
         composite_id = f"{self.spec_path}::{scene.id}"
 

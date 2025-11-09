@@ -1,5 +1,3 @@
-# FILE: sceneweaver/spec/scene/svg_template_scene.py
-
 import importlib.resources
 import tempfile
 from pathlib import Path
@@ -22,6 +20,7 @@ class SvgTemplateScene(BaseScene):
     def __init__(
         self,
         duration: float,
+        base_dir: Path,
         template: Optional[str] = None,
         params: Optional[Dict[str, Any]] = None,
         id: Optional[str] = None,
@@ -32,6 +31,7 @@ class SvgTemplateScene(BaseScene):
     ):
         super().__init__(
             "svg_template",
+            base_dir=base_dir,
             id=id,
             cache=cache,
             effects=effects,
@@ -60,10 +60,10 @@ class SvgTemplateScene(BaseScene):
                 f"Scene '{self.id}' requires a positive 'duration'."
             )
 
-    def prepare(self, base_dir: Path) -> List[Any]:
-        resolved_assets = super().prepare(base_dir)
+    def prepare(self) -> List[Any]:
+        resolved_assets = super().prepare()
         if self.template:
-            template_path = (base_dir / self.template).resolve()
+            template_path = (self.base_dir / self.template).resolve()
             if not template_path.is_file():
                 raise ValidationError(
                     f"In scene '{self.id}', template file not found at "
@@ -98,7 +98,6 @@ class SvgTemplateScene(BaseScene):
             )
             template = env.get_template(user_template_path.name)
         else:
-            # --- MINIMAL CHANGE START ---
             # For packaged resources, we get the parent directory first
             default_template_dir = (
                 importlib.resources.files("sceneweaver")
@@ -118,7 +117,6 @@ class SvgTemplateScene(BaseScene):
                     loader=FileSystemLoader(searchpath=base_path)
                 )
             template = env.from_string(template_content)
-            # --- MINIMAL CHANGE END ---
 
         env.globals.update(min=min, max=max, round=round, abs=abs)
 
@@ -142,7 +140,6 @@ class SvgTemplateScene(BaseScene):
                 rendered_svg_str = template.render(context)
                 output_path = temp_dir / f"frame_{i:05d}.png"
 
-                # Core rendering logic using CairoSVG
                 cairosvg.svg2png(
                     bytestring=rendered_svg_str.encode("utf-8"),
                     write_to=str(output_path),
@@ -157,7 +154,6 @@ class SvgTemplateScene(BaseScene):
                 )
                 return None
 
-            # Load images into RAM before the temp dir is deleted
             visual_clip = ImageSequenceClip(
                 frame_paths, fps=settings.fps, load_images=True
             )
@@ -198,6 +194,7 @@ class SvgTemplateScene(BaseScene):
 
         instance = cls(
             duration=data["duration"],
+            base_dir=base_dir,
             template=data.get("template"),
             params=data.get("params"),
             id=data.get("id"),

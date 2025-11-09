@@ -16,6 +16,7 @@ class VideoImagesScene(BaseScene):
         self,
         fps: int,
         file: str,
+        base_dir: Path,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
@@ -25,6 +26,7 @@ class VideoImagesScene(BaseScene):
     ):
         super().__init__(
             "video-images",
+            base_dir=base_dir,
             id=id,
             cache=cache,
             annotations=annotations,
@@ -35,13 +37,13 @@ class VideoImagesScene(BaseScene):
         self.fps = fps
         self.file = file
 
-    def prepare(self, base_dir: Path) -> List[Path]:
-        resolved_assets = super().prepare(base_dir)
+    def prepare(self) -> List[Path]:
+        resolved_assets = super().prepare()
         expanded_path = Path(self.file).expanduser()
         pattern = str(
             expanded_path
             if expanded_path.is_absolute()
-            else (base_dir / expanded_path).resolve()
+            else (self.base_dir / expanded_path).resolve()
         )
 
         def natural_sort_key(s):
@@ -130,6 +132,7 @@ class VideoImagesScene(BaseScene):
         return cls(
             fps=data["fps"],
             file=data["file"],
+            base_dir=base_dir,
             id=data.get("id"),
             cache=cache_config,
             annotations=annotations,

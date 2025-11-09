@@ -20,6 +20,7 @@ def test_image_scene_creation_and_validation(
     scene = ImageScene.from_dict(data, base_dir)
     assert scene.duration == 5
     assert scene.stretch is True
+    assert scene.base_dir == base_dir
 
     # Valid scene with frames
     data_frames = {
@@ -52,9 +53,12 @@ def test_image_scene_prepare(base_dir: Path, dummy_image_path: Path):
     """Tests the prepare method for resolving the image path."""
     # Use a relative path from the base_dir
     relative_path = dummy_image_path.relative_to(base_dir)
-    scene = ImageScene(id="img1", duration=2, image=str(relative_path))
+    scene = ImageScene(
+        base_dir=base_dir, id="img1", duration=2, image=str(relative_path)
+    )
 
-    prepared_assets = scene.prepare(base_dir)
+    # prepare() now takes no arguments
+    prepared_assets = scene.prepare()
 
     assert len(prepared_assets) == 1
     # Check that the resolved path is the absolute path to the dummy image
@@ -63,9 +67,12 @@ def test_image_scene_prepare(base_dir: Path, dummy_image_path: Path):
 
 def test_image_scene_prepare_missing_file(base_dir: Path):
     """Tests that prepare raises an error if the image file doesn't exist."""
-    scene = ImageScene(id="img1", duration=2, image="non_existent_file.png")
+    scene = ImageScene(
+        base_dir=base_dir, id="img1", duration=2, image="non_existent_file.png"
+    )
     with pytest.raises(ValidationError, match="image file not found"):
-        scene.prepare(base_dir)
+        # prepare() now takes no arguments
+        scene.prepare()
 
 
 def test_image_scene_render(
@@ -82,7 +89,8 @@ def test_image_scene_render(
         base_dir=base_dir,
     )
 
-    assets = [dummy_image_path]
+    # The render method still needs the prepared assets
+    assets = scene.prepare()
     clip = scene.render(assets, video_settings)
 
     assert isinstance(clip, VideoClip)
@@ -108,7 +116,8 @@ def test_image_scene_render_with_audio_duration(
         base_dir=base_dir,
     )
 
-    assets = scene.prepare(base_dir)
+    # prepare() now takes no arguments
+    assets = scene.prepare()
     clip = scene.render(assets, video_settings)
 
     assert isinstance(clip, VideoClip)

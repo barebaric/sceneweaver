@@ -4,3 +4,11 @@ class ValidationError(ValueError):
     """
 
     pass
+
+
+class TemplateNotFoundError(ValueError):
+    """
+    Custom exception for when a specified template cannot be found.
+    """
+
+    pass

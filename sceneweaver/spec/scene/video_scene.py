@@ -13,6 +13,7 @@ class VideoScene(BaseScene):
     def __init__(
         self,
         file: str,
+        base_dir: Path,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
@@ -22,6 +23,7 @@ class VideoScene(BaseScene):
     ):
         super().__init__(
             "video",
+            base_dir=base_dir,
             id=id,
             cache=cache,
             annotations=annotations,
@@ -31,13 +33,13 @@ class VideoScene(BaseScene):
         )
         self.file = file
 
-    def prepare(self, base_dir: Path) -> List[Path]:
-        resolved_assets = super().prepare(base_dir)
+    def prepare(self) -> List[Path]:
+        resolved_assets = super().prepare()
         expanded_path = Path(self.file).expanduser()
         absolute_path = (
             expanded_path
             if expanded_path.is_absolute()
-            else (base_dir / expanded_path).resolve()
+            else (self.base_dir / expanded_path).resolve()
         )
         resolved_assets.append(absolute_path)
         return resolved_assets
@@ -103,6 +105,7 @@ class VideoScene(BaseScene):
 
         return cls(
             file=data["file"],
+            base_dir=base_dir,
             id=data.get("id"),
             cache=cache_config,
             annotations=annotations,

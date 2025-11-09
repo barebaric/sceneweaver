@@ -17,6 +17,7 @@ from .base_scene import BaseScene
 class ImageScene(BaseScene):
     def __init__(
         self,
+        base_dir: Path,
         image: Optional[str],
         duration: Optional[float] = None,
         frames: Optional[int] = None,
@@ -35,6 +36,7 @@ class ImageScene(BaseScene):
     ):
         super().__init__(
             "image",
+            base_dir=base_dir,
             id=id,
             cache=cache,
             annotations=annotations,
@@ -70,14 +72,14 @@ class ImageScene(BaseScene):
                     "'height' when 'stretch' is false."
                 )
 
-    def prepare(self, base_dir: Path) -> List[Path]:
-        resolved_assets = super().prepare(base_dir)
+    def prepare(self) -> List[Path]:
+        resolved_assets = super().prepare()
         assert self.image is not None
         expanded_path = Path(self.image).expanduser()
         absolute_path = (
             expanded_path
             if expanded_path.is_absolute()
-            else (base_dir / expanded_path).resolve()
+            else (self.base_dir / expanded_path).resolve()
         )
 
         if not absolute_path.is_file():
@@ -279,6 +281,7 @@ class ImageScene(BaseScene):
         )
 
         instance = cls(
+            base_dir=base_dir,
             duration=data.get("duration"),
             frames=data.get("frames"),
             image=data.get("image"),

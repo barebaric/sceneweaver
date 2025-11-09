@@ -1,6 +1,9 @@
 from typing import List, Dict, Any
 from pathlib import Path
+import yaml
+from jinja2 import Environment
 from ..errors import ValidationError
+from ..template_manager import TemplateManager
 from .video_settings import VideoSettings
 from .scene.base_scene import BaseScene
 
@@ -43,11 +46,41 @@ class VideoSpec:
         scene_defaults = settings.scene_defaults
 
         scenes = []
+        template_manager = TemplateManager()
+        jinja_env = Environment()
+
         for scene_data in scenes_data:
-            # Merge defaults with scene-specific data here.
-            # Scene-specific values will overwrite defaults.
             merged_data = {**scene_defaults, **scene_data}
-            scenes.append(BaseScene.from_dict(merged_data, base_dir))
+
+            if merged_data.get("type") != "template":
+                # Regular scene, use the main spec's directory
+                new_scene = BaseScene.from_dict(merged_data, base_dir)
+                scenes.append(new_scene)
+                continue
+
+            # Template scenes are replaced by real scenes here.
+            template_name = merged_data["name"]
+            template_dir = template_manager.resolve(template_name)
+
+            template_spec_path = template_dir / "template.yaml"
+            template_content = template_spec_path.read_text(encoding="utf-8")
+
+            template = jinja_env.from_string(template_content)
+
+            context = merged_data.get("with", {})
+            if "id" in merged_data:
+                context["id"] = merged_data["id"]
+
+            rendered_yaml_str = template.render(context)
+            scenes_from_template = yaml.safe_load(rendered_yaml_str) or []
+
+            if isinstance(scenes_from_template, dict):
+                scenes_from_template = [scenes_from_template]
+
+            for scene_dict in scenes_from_template:
+                # Use the template's directory as the base for asset resolution
+                new_scene = BaseScene.from_dict(scene_dict, template_dir)
+                scenes.append(new_scene)
 
         instance = cls(settings=settings, scenes=scenes)
         instance.validate()

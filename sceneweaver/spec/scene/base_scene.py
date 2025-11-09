@@ -22,6 +22,7 @@ class BaseScene:
     def __init__(
         self,
         type: str,
+        base_dir: Path,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
@@ -31,6 +32,7 @@ class BaseScene:
     ):
         self.type = type
         self.id = id
+        self.base_dir = base_dir
         self.cache = cache
         self.annotations = annotations or []
         self.effects = effects or []
@@ -52,7 +54,7 @@ class BaseScene:
                 return asset_path
         return None
 
-    def prepare(self, base_dir: Path) -> List[Path]:
+    def prepare(self) -> List[Path]:
         """
         Prepares the scene by resolving all necessary asset paths.
         This method should be overridden by subclasses that use external files.
@@ -64,7 +66,7 @@ class BaseScene:
                 absolute_path = (
                     expanded_path
                     if expanded_path.is_absolute()
-                    else (base_dir / expanded_path).resolve()
+                    else (self.base_dir / expanded_path).resolve()
                 )
                 if not absolute_path.is_file():
                     raise ValidationError(
@@ -167,21 +169,27 @@ class BaseScene:
     def _get_scene_types(cls) -> Dict[str, Type["BaseScene"]]:
         """Central registry of scene types."""
         from .image_scene import ImageScene
+        from .svg_template_scene import SvgTemplateScene
+        from .template_scene import TemplateScene
         from .video_scene import VideoScene
         from .video_images_scene import VideoImagesScene
-        from .svg_template_scene import SvgTemplateScene
 
         return {
             "image": ImageScene,
+            "svg_template": SvgTemplateScene,
+            "template": TemplateScene,
             "video": VideoScene,
             "video-images": VideoImagesScene,
-            "svg_template": SvgTemplateScene,
         }
 
     @classmethod
     def get_available_types(cls) -> List[str]:
         """Returns a list of all known scene type names."""
-        return list(cls._get_scene_types().keys())
+        # We don't want users to be able to add 'template' scenes directly
+        # via the CLI prompt, as they are meant for expansion only.
+        available_types = list(cls._get_scene_types().keys())
+        available_types.remove("template")
+        return available_types
 
     @classmethod
     def get_scene_class(cls, scene_type: str) -> Type["BaseScene"]:

@@ -33,6 +33,7 @@ dependencies = [
     "ruamel.yaml>=0.17",
     "platformdirs>=4.5.0,<5",
     "sounddevice",
+    "noisereduce"
 ]
 
 [project.optional-dependencies]

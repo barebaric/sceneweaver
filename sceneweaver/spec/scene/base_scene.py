@@ -170,12 +170,14 @@ class BaseScene:
         from .image_scene import ImageScene
         from .video_scene import VideoScene
         from .video_images_scene import VideoImagesScene
+        from .svg_template_scene import SvgTemplateScene
 
         return {
             "title_card": TitleCardScene,
             "image": ImageScene,
             "video": VideoScene,
             "video-images": VideoImagesScene,
+            "svg_template": SvgTemplateScene,
         }
 
     @classmethod

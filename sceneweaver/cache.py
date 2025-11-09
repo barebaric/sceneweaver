@@ -3,7 +3,8 @@ import json
 import shutil
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
+from importlib.resources.abc import Traversable
 import platformdirs
 import yaml
 
@@ -42,18 +43,20 @@ class CacheManager:
             yaml.safe_dump(self.metadata, f)
 
     def _get_scene_hash(
-        self, scene_dict: Dict[str, Any], assets: List[Path]
+        self,
+        scene_dict: Dict[str, Any],
+        assets: List[Union[Path, Traversable]],
     ) -> str:
         hasher = hashlib.sha256()
 
-        # Hash the scene's definition
         scene_str = json.dumps(scene_dict, sort_keys=True, default=str)
         hasher.update(scene_str.encode("utf-8"))
 
-        # Hash the content of all associated asset files
-        for asset_path in sorted(assets):
+        # Sort by string representation to ensure consistent order
+        sorted_assets = sorted(assets, key=str)
+        for asset_path in sorted_assets:
             if asset_path.is_file():
-                with open(asset_path, "rb") as f:
+                with asset_path.open("rb") as f:
                     while chunk := f.read(8192):
                         hasher.update(chunk)
         return hasher.hexdigest()
@@ -62,7 +65,7 @@ class CacheManager:
         self,
         composite_scene_id: str,
         scene_dict: Dict[str, Any],
-        assets: List[Path],
+        assets: List[Union[Path, Traversable]],
     ) -> Optional[Path]:
         entry = self.metadata["scenes"].get(composite_scene_id)
         if not entry:
@@ -85,7 +88,7 @@ class CacheManager:
         self,
         composite_scene_id: str,
         scene_dict: Dict[str, Any],
-        assets: List[Path],
+        assets: List[Union[Path, Traversable]],
         temp_clip_path: Path,
         cache_settings: Optional[Dict[str, Any]],
     ) -> Path:

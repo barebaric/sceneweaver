@@ -33,7 +33,9 @@ dependencies = [
     "ruamel.yaml>=0.17",
     "platformdirs>=4.5.0,<5",
     "sounddevice",
-    "noisereduce"
+    "noisereduce",
+    "cairosvg",
+    "jinja2"
 ]
 
 [project.optional-dependencies]
@@ -56,6 +58,9 @@ Issues = "https://github.com/yourusername/sceneweaver/issues"
 
 [project.scripts]
 sceneweaver = "sceneweaver.app:main"
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -4,6 +4,7 @@ from scipy.io.wavfile import write
 from pathlib import Path
 import sys
 import time
+import noisereduce as nr
 
 
 class AudioRecorder:
@@ -79,7 +80,24 @@ class AudioRecorder:
             print("Recording was too short after trimming. Aborting.")
             return False
 
+        # Denoise the audio before saving
+        print("Denoising recorded audio...")
+        # Convert from int16 to float32 for processing
+        audio_data_float = trimmed_recording.astype(np.float32) / 32767.0
+
+        # The noisereduce library expects a 1D array for mono audio.
+        # Our recording is shape (n_samples, 1), so we reshape it.
+        audio_data_1d = audio_data_float.reshape(-1)
+
+        # Perform noise reduction on the 1D array
+        reduced_noise = nr.reduce_noise(
+            y=audio_data_1d, sr=self.sample_rate, prop_decrease=0.95
+        )
+
+        # Convert back to int16 for saving
+        denoised_recording_int16 = (reduced_noise * 32767).astype(np.int16)
+
         print(f"Saving audio to {self.output_path}...")
-        write(self.output_path, self.sample_rate, trimmed_recording)
+        write(self.output_path, self.sample_rate, denoised_recording_int16)
         print("Done.")
         return True

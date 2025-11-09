@@ -3,7 +3,7 @@ import json
 import shutil
 import time
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Optional, Union, Sequence
 from importlib.resources.abc import Traversable
 import platformdirs
 import yaml
@@ -45,7 +45,7 @@ class CacheManager:
     def _get_scene_hash(
         self,
         scene_dict: Dict[str, Any],
-        assets: List[Union[Path, Traversable]],
+        assets: Sequence[Union[Path, Traversable]],
     ) -> str:
         hasher = hashlib.sha256()
 
@@ -65,7 +65,7 @@ class CacheManager:
         self,
         composite_scene_id: str,
         scene_dict: Dict[str, Any],
-        assets: List[Union[Path, Traversable]],
+        assets: Sequence[Union[Path, Traversable]],
     ) -> Optional[Path]:
         entry = self.metadata["scenes"].get(composite_scene_id)
         if not entry:
@@ -88,7 +88,7 @@ class CacheManager:
         self,
         composite_scene_id: str,
         scene_dict: Dict[str, Any],
-        assets: List[Union[Path, Traversable]],
+        assets: Sequence[Union[Path, Traversable]],
         temp_clip_path: Path,
         cache_settings: Optional[Dict[str, Any]],
     ) -> Path:

@@ -61,6 +61,10 @@ class VideoScene(BaseScene):
         return clip_with_audio.with_duration(visual_duration)
 
     @classmethod
+    def get_template(cls) -> Dict[str, Any]:
+        return {"type": "video", "file": "path/to/your/video.mp4"}
+
+    @classmethod
     def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "VideoScene":
         cache_config = None
         if "cache" in data:

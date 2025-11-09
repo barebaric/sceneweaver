@@ -39,7 +39,8 @@ settings:
 scenes:
   - id: intro_card
     type: title_card
-    duration: 3
+    duration: 3  # optional if audio is given
+    audio: my/narration.wav
     title: Hello, SceneWeaver!
     transition:
       type: cross-fade
@@ -70,7 +71,33 @@ scenes:
         duration: 1
 ```
 
-#### Other Commands
+### Other Commands
+
+#### Managing Scenes
+
+SceneWeaver provides interactive commands to help you build your spec file quickly.
+
+- **Add a new scene:**
+
+  ```bash
+  # Interactively prompts for ID, type, and required info
+  sceneweaver scene add my_video.yaml
+
+  # Directly specify the new scene's ID and type
+  sceneweaver scene add my_video.yaml:new_intro title_card
+  ```
+
+- **Record audio for a scene:**
+
+  ```bash
+  # Interactively prompts to select a scene to record for
+  sceneweaver scene audio my_video.yaml
+
+  # Directly target a scene by its ID
+  sceneweaver scene audio my_video.yaml:main_image
+  ```
+
+#### Rendering and Cache
 
 - **Render a single scene** (for quick previews):
 

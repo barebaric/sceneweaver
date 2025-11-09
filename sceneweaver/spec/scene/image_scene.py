@@ -1,12 +1,7 @@
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 import numpy as np
-from moviepy import (
-    ImageClip,
-    CompositeVideoClip,
-    VideoClip,
-    ColorClip,
-)
+from moviepy import ImageClip, CompositeVideoClip, VideoClip, ColorClip
 from moviepy.video.fx import Crop, Resize
 from PIL import ImageColor
 from ...errors import ValidationError
@@ -60,13 +55,9 @@ class ImageScene(BaseScene):
 
     def validate(self):
         super().validate()
-        if self.duration is None and self.frames is None:
+        if self.duration is None and self.frames is None and not self.audio:
             raise ValidationError(
-                f"Scene '{self.id}' requires either 'duration' or 'frames'."
-            )
-        if self.duration is not None and self.frames is not None:
-            raise ValidationError(
-                f"Scene '{self.id}' cannot have both 'duration' and 'frames'."
+                f"Scene '{self.id}' requires 'duration', 'frames', or 'audio'."
             )
         if self.image is None:
             raise ValidationError(
@@ -213,13 +204,19 @@ class ImageScene(BaseScene):
         if not image_path:
             return None
 
+        # Determine duration hierarchy: frames > duration > audio
         if self.frames is not None:
             assert settings.fps is not None
             self._calculated_duration = self.frames / settings.fps
-        else:
+        elif self.duration is not None:
             self._calculated_duration = self.duration
+        else:
+            self._calculated_duration = self._get_duration_from_audio(assets)
 
-        assert self._calculated_duration is not None
+        if self._calculated_duration is None:
+            raise ValidationError(
+                f"Could not determine duration for scene '{self.id}'."
+            )
 
         img_clip = ImageClip(str(image_path)).with_duration(
             self._calculated_duration
@@ -233,9 +230,15 @@ class ImageScene(BaseScene):
 
         clip_with_audio = self._apply_audio_to_clip(visual_clip, assets)
 
-        # Enforce the scene's duration AFTER audio is attached.
-        # This prevents audio from changing the final clip's length.
         return clip_with_audio.with_duration(self._calculated_duration)
+
+    @classmethod
+    def get_template(cls) -> Dict[str, Any]:
+        return {
+            "type": "image",
+            "duration": 5,
+            "image": "path/to/your/image.png",
+        }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "ImageScene":

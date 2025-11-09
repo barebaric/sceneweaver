@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Type
 from pathlib import Path
 import numpy as np
 from moviepy import (
@@ -74,6 +74,23 @@ class BaseScene:
                 resolved_assets.append(absolute_path)
         return resolved_assets
 
+    def _get_duration_from_audio(self, assets: List[Path]) -> Optional[float]:
+        """Calculates the total duration from all audio tracks."""
+        if not self.audio:
+            return None
+
+        max_end_time = 0.0
+        for track in self.audio:
+            audio_path = self.find_asset(track.file, assets)
+            if audio_path:
+                with AudioFileClip(str(audio_path)) as clip:
+                    # The end time is the clip's duration plus its start offset
+                    end_time = clip.duration + track.shift
+                    if end_time > max_end_time:
+                        max_end_time = end_time
+
+        return max_end_time if max_end_time > 0 else None
+
     def _apply_annotations_to_clip(
         self, base_clip: VideoClip, settings: VideoSettings
     ) -> VideoClip:
@@ -140,21 +157,47 @@ class BaseScene:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "BaseScene":
-        """Factory method to create specific scene instances."""
-        # Local imports to prevent circular dependency issues
+    def get_template(cls) -> Dict[str, Any]:
+        """Returns a dictionary with default values for a new scene."""
+        raise NotImplementedError(
+            "The get_template method must be implemented by scene subclasses."
+        )
+
+    @classmethod
+    def _get_scene_types(cls) -> Dict[str, Type["BaseScene"]]:
+        """Central registry of scene types."""
         from .title_card_scene import TitleCardScene
         from .image_scene import ImageScene
         from .video_scene import VideoScene
         from .video_images_scene import VideoImagesScene
 
+        return {
+            "title_card": TitleCardScene,
+            "image": ImageScene,
+            "video": VideoScene,
+            "video-images": VideoImagesScene,
+        }
+
+    @classmethod
+    def get_available_types(cls) -> List[str]:
+        """Returns a list of all known scene type names."""
+        return list(cls._get_scene_types().keys())
+
+    @classmethod
+    def get_scene_class(cls, scene_type: str) -> Type["BaseScene"]:
+        """Returns the class for a given scene type name."""
+        scene_map = cls._get_scene_types()
+        if scene_type not in scene_map:
+            raise ValueError(f"Unknown scene type: {scene_type}")
+        return scene_map[scene_type]
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "BaseScene":
+        """
+        Factory method to create specific scene instances from a dictionary.
+        """
         scene_type = data.get("type")
-        if scene_type == "title_card":
-            return TitleCardScene.from_dict(data, base_dir)
-        if scene_type == "image":
-            return ImageScene.from_dict(data, base_dir)
-        if scene_type == "video":
-            return VideoScene.from_dict(data, base_dir)
-        if scene_type == "video-images":
-            return VideoImagesScene.from_dict(data, base_dir)
-        raise ValidationError(f"Unknown scene type: {scene_type}")
+        if not scene_type:
+            raise ValidationError("Scene data is missing the 'type' field.")
+        scene_class = cls.get_scene_class(scene_type)
+        return scene_class.from_dict(data, base_dir)

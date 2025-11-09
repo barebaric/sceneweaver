@@ -43,9 +43,10 @@ class TitleCardScene(BaseScene):
 
     def validate(self):
         super().validate()
-        if self.duration is None:
+        if self.duration is None and not self.audio:
             raise ValidationError(
-                f"Scene '{self.id}' is missing required field: 'duration'."
+                f"Scene '{self.id}' requires 'duration' "
+                f"if no 'audio' is provided."
             )
         if self.title is None:
             raise ValidationError(
@@ -55,7 +56,16 @@ class TitleCardScene(BaseScene):
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        assert self.duration is not None
+        # Determine duration: from spec, or infer from audio if not provided.
+        scene_duration = self.duration
+        if scene_duration is None:
+            scene_duration = self._get_duration_from_audio(assets)
+
+        if scene_duration is None:
+            raise ValidationError(
+                f"Could not determine duration for scene '{self.id}'."
+            )
+
         assert self.title is not None
         assert settings.width is not None
         assert settings.height is not None
@@ -94,17 +104,26 @@ class TitleCardScene(BaseScene):
         )
 
         background = ColorClip(
-            size, color=bg_color_tuple, duration=self.duration
+            size, color=bg_color_tuple, duration=scene_duration
         )
 
         base_clip = CompositeVideoClip([background, title, subtitle])
-        visual_clip = base_clip.with_duration(self.duration)
+        visual_clip = base_clip.with_duration(scene_duration)
 
         annotated_clip = self._apply_annotations_to_clip(visual_clip, settings)
         clip_with_audio = self._apply_audio_to_clip(annotated_clip, assets)
 
         # Enforce the scene's duration AFTER audio is attached.
-        return clip_with_audio.with_duration(self.duration)
+        return clip_with_audio.with_duration(scene_duration)
+
+    @classmethod
+    def get_template(cls) -> Dict[str, Any]:
+        return {
+            "type": "title_card",
+            "duration": 3,
+            "title": "New Title Scene",
+            "subtitle": "A short description",
+        }
 
     @classmethod
     def from_dict(

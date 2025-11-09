@@ -1,12 +1,14 @@
 import argparse
+import re
 import sys
 from pathlib import Path
 from ruamel.yaml import YAML
-from ruamel.yaml.comments import CommentedSeq
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from .cache import CacheManager
 from .errors import ValidationError
 from .generator import VideoGenerator
 from .recorder import AudioRecorder
+from .spec.scene import BaseScene
 from .template import TEMPLATE_YAML
 
 
@@ -31,31 +33,57 @@ def handle_create(args):
     print(f"Created a new example specification file at: {spec_path}")
 
 
-def handle_record_audio(args):
-    spec_arg = args.spec_file
-    if ":" not in spec_arg:
-        print(
-            "Error: The record-audio command requires a scene ID.",
-            file=sys.stderr,
-        )
-        print(
-            "Example: pixi record-audio my_video.yaml:scene_id",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+def _slugify(text: str) -> str:
+    """Converts a string to a safe, unique scene ID."""
+    s = text.lower().strip()
+    s = re.sub(r"[\s-]+", "_", s)
+    s = re.sub(r"[^\w_]", "", s)
+    return s
 
-    spec_file_str, target_scene_id = spec_arg.split(":", 1)
-    spec_path = Path(spec_file_str).resolve()
+
+def _prompt_for_scene(scenes: list) -> tuple[str, int]:
+    """Asks the user to select a scene and returns its ID and index."""
+    print("Please select a scene:")
+    for i, scene in enumerate(scenes):
+        scene_id = scene.get("id", f"Scene {i + 1} (no id)")
+        scene_type = scene.get("type", "unknown type")
+        print(f"  {i + 1}. {scene_id} ({scene_type})")
+
+    while True:
+        try:
+            choice = int(input(f"Enter number (1-{len(scenes)}): "))
+            if 1 <= choice <= len(scenes):
+                index = choice - 1
+                return scenes[index]["id"], index
+        except (ValueError, IndexError):
+            pass
+        print("Invalid selection. Please try again.")
+
+
+def _prompt_for_scene_type() -> str:
+    """Asks the user to select a scene type."""
+    print("Please select a scene type to add:")
+    available_types = BaseScene.get_available_types()
+    for i, scene_type in enumerate(available_types):
+        print(f"  {i + 1}. {scene_type}")
+
+    while True:
+        try:
+            choice = int(input(f"Enter number (1-{len(available_types)}): "))
+            if 1 <= choice <= len(available_types):
+                return available_types[choice - 1]
+        except (ValueError, IndexError):
+            pass
+        print("Invalid selection. Please try again.")
+
+
+def _record_and_update_spec(
+    spec_path: Path, yaml: YAML, spec_dict: dict, target_scene_id: str
+) -> bool:
+    """
+    Handles the full audio recording and spec update flow for a given scene.
+    """
     base_dir = spec_path.parent
-
-    if not spec_path.is_file():
-        print(f"Error: Spec file not found at {spec_path}", file=sys.stderr)
-        sys.exit(1)
-
-    yaml = YAML()
-    with open(spec_path, "r") as f:
-        spec_dict = yaml.load(f)
-
     settings = spec_dict.get("settings", {})
     scenes = spec_dict.get("scenes", [])
 
@@ -65,13 +93,13 @@ def handle_record_audio(args):
             target_scene_index = i
             break
 
-    if target_scene_index == -1:
+    if target_scene_index == -1:  # Sanity check
         print(
             f"Error: Scene with id '{target_scene_id}' not found "
             f"in {spec_path}",
             file=sys.stderr,
         )
-        sys.exit(1)
+        return False
 
     recording_dir_name = settings.get("audio_recording_path", "audio")
     output_dir = base_dir / recording_dir_name
@@ -81,23 +109,24 @@ def handle_record_audio(args):
     output_path = output_dir / output_filename
     relative_audio_path = f"{recording_dir_name}/{output_filename}"
 
+    should_record = True
     if output_path.exists():
         overwrite = input(
             f"Warning: Audio file already exists at {output_path}.\n"
             "Do you want to overwrite it? (y/N): "
         )
         if overwrite.lower() != "y":
-            print("Aborted.")
-            return
+            print("Using existing audio file.")
+            should_record = False
 
-    recorder = AudioRecorder(output_path)
-    was_successful = recorder.record()
+    if should_record:
+        recorder = AudioRecorder(output_path)
+        was_successful = recorder.record()
+        if not was_successful:
+            print("\nAudio was not saved. The spec file will not be modified.")
+            return False
 
-    if not was_successful:
-        print("\nAudio was not saved. The spec file will not be modified.")
-        return
-
-    # --- Automatically update the YAML spec file ---
+    # Automatically update the YAML spec file
     print(f"\nUpdating spec file: {spec_path}")
     target_scene = spec_dict["scenes"][target_scene_index]
     new_audio_track = {"file": relative_audio_path}
@@ -140,13 +169,135 @@ def handle_record_audio(args):
         )
         target_scene["audio"] = [new_audio_track]
 
+    # If duration is now redundant because audio was added, remove it.
+    if "duration" in target_scene:
+        del target_scene["duration"]
+
     with open(spec_path, "w") as f:
         yaml.dump(spec_dict, f)
 
-    print(
-        f"✅ Successfully recorded audio and updated '{target_scene_id}' "
-        f"in {spec_path.name}."
-    )
+    print(f"✅ Successfully updated '{target_scene_id}' in {spec_path.name}.")
+    return True
+
+
+def handle_scene_add(args):
+    spec_arg = args.spec_file
+    new_scene_id = None
+    if ":" in spec_arg:
+        spec_file_str, new_scene_id = spec_arg.split(":", 1)
+    else:
+        spec_file_str = spec_arg
+
+    spec_path = Path(spec_file_str).resolve()
+    if not spec_path.is_file():
+        print(f"Error: Spec file not found at {spec_path}", file=sys.stderr)
+        sys.exit(1)
+
+    yaml = YAML()
+    with open(spec_path, "r") as f:
+        spec_dict = yaml.load(f)
+
+    existing_ids = {s.get("id") for s in spec_dict.get("scenes", [])}
+    if new_scene_id and new_scene_id in existing_ids:
+        print(
+            f"Error: A scene with ID '{new_scene_id}' already exists.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    scene_type = args.scene_type
+    if not scene_type:
+        scene_type = _prompt_for_scene_type()
+
+    try:
+        scene_class = BaseScene.get_scene_class(scene_type)
+        template = scene_class.get_template()
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Always prompt for required fields based on scene type
+    title_text_for_id = "new_scene"
+    if scene_type == "title_card":
+        title_text = input("Enter a title for the new scene: ")
+        template["title"] = title_text
+        title_text_for_id = title_text
+    elif scene_type == "image":
+        template["image"] = input("Enter the path to the image file: ")
+        title_text_for_id = Path(template["image"]).stem
+    elif scene_type == "video":
+        template["file"] = input("Enter the path to the video file: ")
+        title_text_for_id = Path(template["file"]).stem
+    elif scene_type == "video-images":
+        template["file"] = input(
+            "Enter the glob pattern for the image sequence "
+            "(e.g., frames/*.png): "
+        )
+        title_text_for_id = f"image_sequence_{scene_type}"
+
+    # Determine the final scene ID
+    scene_id = new_scene_id
+    if not scene_id:
+        base_id = _slugify(title_text_for_id)
+        scene_id = base_id
+        count = 2
+        while scene_id in existing_ids:
+            scene_id = f"{base_id}_{count}"
+            count += 1
+
+    new_scene = CommentedMap(template)
+    new_scene["id"] = scene_id
+
+    spec_dict.setdefault("scenes", []).append(new_scene)
+
+    with open(spec_path, "w") as f:
+        yaml.dump(spec_dict, f)
+
+    print(f"✅ Added new scene '{scene_id}' to {spec_path.name}.")
+
+    record_now = input("Record audio for this new scene now? (y/N): ")
+    if record_now.lower() == "y":
+        with open(spec_path, "r") as f:
+            updated_spec_dict = yaml.load(f)
+        _record_and_update_spec(spec_path, yaml, updated_spec_dict, scene_id)
+
+
+def handle_scene_record_audio(args):
+    spec_arg = args.spec_file
+    target_scene_id = None
+    if ":" in spec_arg:
+        spec_file_str, target_scene_id = spec_arg.split(":", 1)
+    else:
+        spec_file_str = spec_arg
+
+    spec_path = Path(spec_file_str).resolve()
+    if not spec_path.is_file():
+        print(f"Error: Spec file not found at {spec_path}", file=sys.stderr)
+        sys.exit(1)
+
+    yaml = YAML()
+    with open(spec_path, "r") as f:
+        spec_dict = yaml.load(f)
+
+    scenes = spec_dict.get("scenes", [])
+    if not scenes:
+        print("Spec file has no scenes to record audio for. Aborting.")
+        return
+
+    if target_scene_id:
+        # A scene ID was provided directly. Validate it.
+        if not any(s.get("id") == target_scene_id for s in scenes):
+            print(
+                f"Error: Scene with ID '{target_scene_id}' not found "
+                f"in {spec_path}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        # No scene ID provided, so prompt the user.
+        target_scene_id, _ = _prompt_for_scene(scenes)
+
+    _record_and_update_spec(spec_path, yaml, spec_dict, target_scene_id)
 
 
 def main():
@@ -186,18 +337,45 @@ def main():
     )
     parser_create.set_defaults(func=handle_create)
 
-    parser_record = subparsers.add_parser(
-        "record-audio", help="Record audio and link it to a specific scene."
+    # Scene Subcommand Parser
+    parser_scene = subparsers.add_parser(
+        "scene", help="Manage scenes in a spec file."
     )
-    parser_record.add_argument(
+    scene_subparsers = parser_scene.add_subparsers(
+        dest="scene_command", required=True
+    )
+
+    parser_scene_add = scene_subparsers.add_parser(
+        "add", help="Add a new scene to the spec."
+    )
+    parser_scene_add.add_argument(
         "spec_file",
         type=str,
         help=(
-            "Path to the spec file and scene ID, e.g., "
-            "'path/to/spec.yaml:scene_id'."
+            "Path to the spec file. Use 'spec.yaml:scene_id' to "
+            "specify the new scene's ID."
         ),
     )
-    parser_record.set_defaults(func=handle_record_audio)
+    parser_scene_add.add_argument(
+        "scene_type",
+        nargs="?",
+        default=None,
+        help="Optional: type of scene to add (e.g., title_card, image).",
+    )
+    parser_scene_add.set_defaults(func=handle_scene_add)
+
+    parser_scene_record = scene_subparsers.add_parser(
+        "audio", help="Record audio for an existing scene."
+    )
+    parser_scene_record.add_argument(
+        "spec_file",
+        type=str,
+        help=(
+            "Path to the spec file. Use 'spec.yaml:scene_id' to "
+            "target a scene directly."
+        ),
+    )
+    parser_scene_record.set_defaults(func=handle_scene_record_audio)
 
     args = parser.parse_args()
     try:

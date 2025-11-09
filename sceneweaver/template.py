@@ -13,6 +13,8 @@ settings:
 scenes:
   - type: title_card
     id: intro_card
+    # 'duration' is optional if 'audio' is provided. The scene will last
+    # as long as the total composite duration of all audio tracks.
     duration: 5
     title: My Awesome Video
     subtitle: A subtitle describing the content
@@ -21,8 +23,7 @@ scenes:
     cache:
       max-size: 1GB
     # To record audio for this scene, run:
-    # pixi record-audio spec.yaml:intro_card
-    # Then add the file path here.
+    # sceneweaver scene record-audio spec.yaml
     audio:
       - file: audio/intro_card.wav
         shift: -0.5 # Start audio 0.5s before scene begins

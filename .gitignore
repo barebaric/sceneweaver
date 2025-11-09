@@ -1,5 +1,6 @@
 venv
 .venv
+.pixi
 *.swp
 *.py[oc]
 __pycache__

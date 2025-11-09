@@ -1,0 +1,26 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+    <style>
+        .slide-text {
+            /*
+                Use the passed-in font_family. If it's not provided,
+                fall back to a standard system font stack.
+            */
+            font-family: "{{ font_family | default('-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif') }}";
+            font-size: 96px;
+            font-weight: bold;
+            fill: #FFFFFF;
+        }
+    </style>
+
+    <rect width="100%" height="100%" fill="#2c3e50" />
+
+    <text
+        class="slide-text"
+        x="50%"
+        y="50%"
+        text-anchor="middle"
+        dominant-baseline="middle"
+    >
+        {{ text }}
+    </text>
+</svg>

@@ -1,0 +1,18 @@
+{% for slide in slides %}
+- type: svg
+  id: slide_{{ loop.index }}
+  duration: {{ slide.duration }}
+  template: "slide.svg"
+  
+  params:
+    text: "{{ slide.text }}"
+    # Pass the global font setting to the SVG template
+    font_family: "{{ font }}"
+
+{% if not loop.last %}
+  transition:
+    type: cross-fade
+    duration: 0.2
+{% endif %}
+
+{% endfor %}

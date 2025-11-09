@@ -173,7 +173,7 @@ class ImageScene(BaseScene):
                 np.array(overlay_pil), transparent=True
             ).with_duration(self._calculated_duration)
 
-            zoomed_annotation_clip = annotation_clip.fx(  # type: ignore
+            zoomed_annotation_clip = annotation_clip.fx(
                 Crop,
                 x1=lambda t: resize_func(t)[0],
                 y1=lambda t: resize_func(t)[1],
@@ -262,9 +262,7 @@ class ImageScene(BaseScene):
             cache_value = data.get("cache")
             if cache_value is False:
                 cache_config = None
-            elif cache_value is True:
-                cache_config = {}
-            elif cache_value is None:
+            elif cache_value is True or cache_value is None:
                 cache_config = {}
             elif isinstance(cache_value, dict):
                 cache_config = cache_value
@@ -280,9 +278,12 @@ class ImageScene(BaseScene):
             else None
         )
 
+        duration_val = data.get("duration")
+        duration = float(duration_val) if duration_val is not None else None
+
         instance = cls(
             base_dir=base_dir,
-            duration=data.get("duration"),
+            duration=duration,
             frames=data.get("frames"),
             image=data.get("image"),
             annotations=annotations,

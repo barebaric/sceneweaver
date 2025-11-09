@@ -67,7 +67,6 @@ class SvgScene(BaseScene):
     def render(
         self, assets: List[Any], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        # Determine duration hierarchy: spec > audio
         if self.duration is not None:
             self._calculated_duration = self.duration
         else:
@@ -138,9 +137,7 @@ class SvgScene(BaseScene):
             "type": "svg",
             "duration": 5,
             "template": "path/to/your/template.svg",
-            "params": {
-                "text_variable": "Hello World",
-            },
+            "params": {"text_variable": "Hello World"},
         }
 
     @classmethod
@@ -149,6 +146,9 @@ class SvgScene(BaseScene):
             raise ValidationError(
                 "Scene type 'svg' is missing required field: 'template'."
             )
+
+        duration_val = data.get("duration")
+        duration = float(duration_val) if duration_val is not None else None
 
         audio_data = data.get("audio", [])
         if isinstance(audio_data, dict):
@@ -167,7 +167,7 @@ class SvgScene(BaseScene):
         )
 
         instance = cls(
-            duration=data.get("duration"),
+            duration=duration,
             template=data["template"],
             base_dir=base_dir,
             params=data.get("params"),

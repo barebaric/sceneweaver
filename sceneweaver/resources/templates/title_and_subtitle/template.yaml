@@ -1,6 +1,7 @@
 - type: svg
+  id: title_and_subtitle
   template: animated_title.svg
-  duration: 3
+  duration: "{{ duration | default(3) }}"
   params:
     main_title: "{{ title }}"
     subtitle: "{{ subtitle | default('') }}"

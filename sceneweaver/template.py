@@ -77,3 +77,26 @@ scenes:
       - type: fade-out
         duration: 1
 """
+
+TEMPLATE_BOILERPLATE_YAML = """
+# This is a boilerplate template.yaml file for a new SceneWeaver template.
+#
+# A template provides a set of default values for scenes.
+# The user can then override any of these defaults directly in their spec file.
+#
+# EXAMPLE:
+# This template defines 'duration: 5'. A user can override this by writing
+# 'duration: 10' on the template block in their main spec file.
+
+# A template should NOT define an 'id'. This must be set by the user.
+
+- type: svg
+  # Defaults for the template
+  duration: 5
+  template: "template.svg" # Asset paths are relative to this file.
+
+  # Parameters to be filled by the 'with:' block
+  params:
+    line1: "{{ line1 | default('Default Line 1') }}"
+    line2: "{{ line2 | default('Default Line 2') }}"
+"""

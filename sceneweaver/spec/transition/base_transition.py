@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 from moviepy import VideoClip
 
 
@@ -17,9 +17,13 @@ class BaseTransition:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "BaseTransition":
+    def from_dict(
+        cls, data: Optional[Dict[str, Any]]
+    ) -> Optional["BaseTransition"]:
         """Factory method to create specific transition instances."""
-        # Local import to avoid circular dependency
+        if data is None:
+            return None
+
         from .crossfade_transition import CrossfadeTransition
 
         transition_type = data.get("type")

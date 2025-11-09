@@ -4,9 +4,6 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from moviepy import (
     VideoClip,
     VideoFileClip,
-    concatenate_videoclips,
-    AudioFileClip,
-    CompositeAudioClip,
     CompositeVideoClip,
 )
 from moviepy.audio.fx import AudioNormalize
@@ -14,7 +11,8 @@ from moviepy.video.fx import Resize
 from .cache import CacheManager
 from .loader import load_spec
 from .spec import VideoSettings, VideoSpec
-from .spec.scene import BaseScene
+from .spec.scene import BaseScene, TemplateScene
+from .renderer import render_scene_list_to_clip
 
 
 class VideoGenerator:
@@ -54,7 +52,7 @@ class VideoGenerator:
     def _process_scene(
         self,
         scene: BaseScene,
-        raw_scene: Dict[str, Any],
+        raw_scene_from_spec: Dict[str, Any],
         temp_dir: Path,
         index: int,
     ) -> Optional[VideoClip]:
@@ -70,45 +68,50 @@ class VideoGenerator:
 
         composite_id = f"{self.spec_path}::{scene.id}"
 
+        # Determine the correct dictionary to use for hashing
+        if isinstance(scene, TemplateScene):
+            scene_dict_for_hash = scene.to_dict()
+        else:
+            scene_dict_for_hash = raw_scene_from_spec
+
         if use_cache:
-            cached_path = self.cache.get(composite_id, raw_scene, assets)
+            cached_path = self.cache.get(
+                composite_id, scene_dict_for_hash, assets
+            )
             if cached_path:
-                clip = VideoFileClip(str(cached_path))
-                # Ensure audio is loaded from cached file
-                if clip.audio is None and scene.audio:
-                    audio_clips = []
-                    for track in scene.audio:
-                        audio_path = scene.find_asset(track.file, assets)
-                        if audio_path:
-                            audio_clip = AudioFileClip(str(audio_path))
-                            if track.shift != 0:
-                                audio_clip = audio_clip.with_start(track.shift)
-                            audio_clips.append(audio_clip)
-                    if audio_clips:
-                        clip = clip.with_audio(CompositeAudioClip(audio_clips))
-                return clip
+                return VideoFileClip(str(cached_path))
 
         if use_cache:
             print("Cache miss. Generating scene...")
         else:
             print("Generating scene...")
 
-        clip = scene.render(assets, self.settings)
+        # 1. Render the base visual clip for ANY scene type.
+        base_clip = scene.render(assets, self.settings)
 
-        if not clip:
+        if not base_clip:
             print(f"Skipping scene {index + 1} as no clip was generated.")
             return None
 
-        # Apply a final resize if the generated clip doesn't match the
-        # target size.
-        if clip.size != list(self.size):
-            clip = clip.with_effects([Resize(height=self.size[1])])
-            assert isinstance(clip, VideoClip)
+        # 2. Apply standard pre-cache overrides (audio, annotations).
+        #    This now happens uniformly for ALL scene types.
+        clip_with_overrides = scene._apply_annotations_to_clip(
+            base_clip, self.settings
+        )
+        clip_with_overrides = scene._apply_audio_to_clip(
+            clip_with_overrides, assets
+        )
+
+        # 3. Apply final adjustments before caching.
+        final_clip = clip_with_overrides
+        if final_clip.size != list(self.size):
+            final_clip = final_clip.with_effects([Resize(height=self.size[1])])
+            assert isinstance(final_clip, VideoClip)
 
         if use_cache:
             temp_clip_path = temp_dir / f"scene_{index}.mp4"
             with tempfile.NamedTemporaryFile(suffix=".aac") as temp_audio:
-                clip.write_videofile(
+                final_clip.write_videofile(
                     str(temp_clip_path),
                     fps=self.settings.fps,
                     codec="libx264",
@@ -118,76 +121,27 @@ class VideoGenerator:
 
             self.cache.put(
                 composite_id,
-                raw_scene,
+                scene_dict_for_hash,
                 assets,
                 temp_clip_path,
                 scene.cache,
             )
 
-        return clip
+        return final_clip
 
     def _assemble_and_write(
         self, clips: List[VideoClip], scenes: List[BaseScene]
     ):
         """Assembles clips with transitions and writes the final video."""
-        if not clips:
+        print("\n--- Stage 3: Assembling with Transitions ---")
+
+        final_video = render_scene_list_to_clip(scenes, clips)
+
+        if not final_video:
             print("No clips to assemble. Exiting.")
             return
 
-        print("\n--- Stage 3: Assembling with Transitions ---")
-        final_segments = []
-        # Use a copy of the list to allow in-place modification for subclip
-        clips_to_process = list(clips)
-
-        i = 0
-        while i < len(clips_to_process):
-            clip_a = clips_to_process[i]
-
-            # If the clip is None, it was fully consumed by a
-            # previous transition.
-            if not clip_a:
-                i += 1
-                continue
-
-            scene_a = scenes[i]
-
-            # Check for an outgoing transition
-            if scene_a.transition and (i + 1) < len(clips_to_process):
-                transition = scene_a.transition
-                d = transition.duration
-                clip_b = clips_to_process[i + 1]
-
-                print(
-                    f"Applying {transition.type} ({d}s) between "
-                    f"'{scene_a.id}' and '{scenes[i + 1].id}'"
-                )
-
-                # Add main part of clip A
-                if clip_a.duration > d:
-                    final_segments.append(
-                        clip_a.subclipped(0, clip_a.duration - d)
-                    )
-
-                # Create and add the transition clip
-                transition_clip = transition.apply(clip_a, clip_b)
-                final_segments.append(transition_clip)
-
-                # Shorten clip B for the next iteration if needed
-                if clip_b.duration > d:
-                    clips_to_process[i + 1] = clip_b.subclipped(d)
-                else:
-                    # The next clip is consumed entirely by the transition
-                    clips_to_process[i + 1] = None  # type: ignore
-            else:
-                # No transition, just add the whole clip
-                final_segments.append(clip_a)
-
-            i += 1
-
         print("\nAll scenes processed. Concatenating final segments...")
-        final_video = concatenate_videoclips(
-            [c for c in final_segments if c is not None], method="compose"
-        )
 
         # Normalize the audio of the final clip to ensure consistent volume
         if final_video.audio:

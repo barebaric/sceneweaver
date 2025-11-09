@@ -1,0 +1,44 @@
+settings:
+  width: 1920
+  height: 1080
+  fps: 30
+  output_file: test_output.mp4
+
+scenes:
+  - type: image
+    id: start_scene
+    duration: 2
+    image: "path/to/some/image.png" # A placeholder starting scene
+    transition:
+      type: cross-fade
+      duration: 0.5
+
+  - id: configuration  # The ID for the entire component
+    type: template
+    name: slide_sequence
+    cache: true # Test caching of the entire component
+    with:
+      slides:
+        - text: This is Slide One
+          duration: 1
+        - text: A Second, Longer Slide
+          duration: 2.5
+        - text: The Final Slide
+          duration: 1.5
+    effects:
+      # This effect should apply to the entire 5-second sequence
+      - type: fade-in
+        duration: 0.5
+    audio:
+      # This audio should play over the entire 5-second sequence
+      - file: "path/to/narration_or_music.mp3"
+    transition:
+      # This transition should happen between the end of the template
+      # and the start of 'end_scene'
+      type: cross-fade
+      duration: 1
+
+  - type: image
+    id: end_scene
+    duration: 2
+    image: "path/to/another/image.png" # A placeholder ending scene

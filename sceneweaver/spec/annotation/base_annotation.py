@@ -57,3 +57,12 @@ class BaseAnnotation:
         if ann_type == "text":
             return TextAnnotation.from_dict(data, base_dir)
         raise ValueError(f"Unknown annotation type: {ann_type}")
+
+    @classmethod
+    def from_list(
+        cls, data: List[Dict[str, Any]], base_dir: Path
+    ) -> List["BaseAnnotation"]:
+        """Creates a list of annotations from a list of dictionaries."""
+        if not data:
+            return []
+        return [cls.from_dict(d, base_dir) for d in data]

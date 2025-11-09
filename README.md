@@ -7,15 +7,15 @@ version-controllable video production.
 For larger projects it supports modular composition and caching, and you can include other
 videos as well.
 
-| Feature                                | Description                                                               |
-| :------------------------------------- | :------------------------------------------------------------------------ |
-| **Declarative YAML Configuration**     | Define videos in a version-controllable YAML specification.               |
-| **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, titles, etc.).   |
-| **Dynamic SVG Templates**              | Generate complex, animated graphics using templated SVG files.            |
-| **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed. |
-| **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.   |
-| **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                 |
-| **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                   |
+| Feature                                | Description                                                                |
+| :------------------------------------- | :------------------------------------------------------------------------- |
+| **Declarative YAML Configuration**     | Define videos in a version-controllable YAML specification.                |
+| **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.). |
+| **Dynamic SVG Templates**              | Generate complex, animated graphics using templated SVG files.             |
+| **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.  |
+| **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.    |
+| **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                  |
+| **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                    |
 
 ## Installation
 
@@ -48,10 +48,12 @@ settings:
 
 scenes:
   - id: intro_card
-    type: title_card
-    duration: 3 # optional if audio is given
+    type: template
+    name: title_and_subtitle
+    with:
+      title: Hello, SceneWeaver!
+      subtitle: Using a built-in template
     audio: my/narration.wav
-    title: Hello, SceneWeaver!
     transition:
       type: cross-fade
       duration: 1
@@ -74,7 +76,6 @@ scenes:
 
   - id: outro
     type: video
-    fps: 25
     file: something.mp4
     effects:
       - type: fade-out
@@ -94,7 +95,7 @@ SceneWeaver provides interactive commands to help you build your spec file quick
   sceneweaver scene add my_video.yaml
 
   # Directly specify the new scene's ID and type
-  sceneweaver scene add my_video.yaml:new_intro title_card
+  sceneweaver scene add my_video.yaml:new_intro image
   ```
 
 - **Record audio for a scene:**
@@ -128,7 +129,7 @@ SceneWeaver provides interactive commands to help you build your spec file quick
 
 #### Using SVG Templates
 
-For creating complex, animated graphics or title cards, you can use the `svg_template`
+For creating complex, animated graphics or title cards, you can use the `svg`
 scene type. This scene renders an SVG file for every frame, allowing you to create
 dynamic animations by parameterizing the SVG's attributes.
 
@@ -139,7 +140,7 @@ gives you access to special variables inside your SVG file.
 
 ```yaml
 - id: animated_intro
-  type: svg_template
+  type: svg
   duration: 5
   # The path to your SVG file, relative to the spec
   template: templates/my_card.svg
@@ -147,14 +148,6 @@ gives you access to special variables inside your SVG file.
   params:
     main_title: "SVG is Powerful"
     accent_color: "tomato"
-
-# This scene uses a default, built-in template
-- id: default_title
-  type: svg_template
-  duration: 3
-  params:
-    title: "Default Template"
-    subtitle: "Simple and clean"
 ```
 
 **Available Jinja2 Variables in your SVG:**

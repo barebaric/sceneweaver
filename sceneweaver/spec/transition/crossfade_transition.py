@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from moviepy import VideoClip, CompositeVideoClip
 from moviepy.video.fx import CrossFadeIn, CrossFadeOut
 from .base_transition import BaseTransition
@@ -23,5 +23,9 @@ class CrossfadeTransition(BaseTransition):
         ).with_duration(self.duration)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "CrossfadeTransition":
+    def from_dict(
+        cls, data: Optional[Dict[str, Any]]
+    ) -> Optional["CrossfadeTransition"]:
+        if data is None:
+            return None
         return cls(type=data["type"], duration=data["duration"])

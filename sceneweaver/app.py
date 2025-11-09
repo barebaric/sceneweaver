@@ -2,6 +2,7 @@ import argparse
 import re
 import sys
 from pathlib import Path
+import importlib.resources
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from .cache import CacheManager
@@ -9,7 +10,8 @@ from .errors import ValidationError
 from .generator import VideoGenerator
 from .recorder import AudioRecorder
 from .spec.scene import BaseScene
-from .template import TEMPLATE_YAML
+from .template import TEMPLATE_YAML, TEMPLATE_BOILERPLATE_YAML
+from .template_manager import TemplateManager
 
 
 def handle_generate(args):
@@ -31,6 +33,84 @@ def handle_create(args):
 
     spec_path.write_text(TEMPLATE_YAML)
     print(f"Created a new example specification file at: {spec_path}")
+
+
+def handle_template_list(args):
+    """Lists all available user and built-in templates."""
+    manager = TemplateManager()
+    user_templates_dir = manager.user_templates_dir
+
+    user_templates = set()
+    if user_templates_dir.is_dir():
+        for item in user_templates_dir.iterdir():
+            if item.is_dir() and (item / "template.yaml").is_file():
+                user_templates.add(item.name)
+
+    built_in_templates = set()
+    try:
+        resources = (
+            importlib.resources.files("sceneweaver")
+            / "resources"
+            / "templates"
+        )
+        for item in resources.iterdir():
+            if item.is_dir() and (item / "template.yaml").is_file():
+                built_in_templates.add(item.name)
+    except FileNotFoundError:
+        pass  # No built-in templates found
+
+    print("Available Templates:")
+    all_names = sorted(list(user_templates | built_in_templates))
+
+    if not all_names:
+        print("  No templates found.")
+        print(f"\nCreate your first template in:\n  {user_templates_dir}")
+        return
+
+    for name in all_names:
+        if name in user_templates and name in built_in_templates:
+            source = "[user override]"
+        elif name in user_templates:
+            source = "[user]"
+        else:
+            source = "[built-in]"
+        print(f"  - {name:<25} {source}")
+
+
+def handle_template_create(args):
+    """Creates a new user template directory and boilerplate file."""
+    template_name = args.template_name
+    if not re.match(r"^[a-zA-Z0-9_-]+$", template_name):
+        print(
+            f"Error: Invalid template name '{template_name}'. "
+            "Use only letters, numbers, underscores, and hyphens."
+        )
+        return
+
+    manager = TemplateManager()
+    user_templates_dir = manager.user_templates_dir
+    new_template_path = user_templates_dir / template_name
+
+    if new_template_path.exists():
+        print(
+            f"Error: Template '{template_name}' already exists "
+            f"at:\n  {new_template_path}"
+        )
+        return
+
+    print(f"Creating new template '{template_name}'...")
+    new_template_path.mkdir(parents=True)
+
+    # Use the imported constant instead of the hardcoded string
+    (new_template_path / "template.yaml").write_text(
+        TEMPLATE_BOILERPLATE_YAML.strip()
+    )
+
+    print("✅ Successfully created template.")
+    print(
+        f"Edit the new template file at:\n"
+        f"  {new_template_path / 'template.yaml'}"
+    )
 
 
 def _slugify(text: str) -> str:
@@ -378,6 +458,29 @@ def main():
         ),
     )
     parser_scene_record.set_defaults(func=handle_scene_record_audio)
+
+    # Template Subcommand Parser
+    parser_template = subparsers.add_parser(
+        "template", help="Manage user-defined templates."
+    )
+    template_subparsers = parser_template.add_subparsers(
+        dest="template_command", required=True
+    )
+
+    parser_template_list = template_subparsers.add_parser(
+        "list", help="List all available templates."
+    )
+    parser_template_list.set_defaults(func=handle_template_list)
+
+    parser_template_create = template_subparsers.add_parser(
+        "create", help="Create a new user template."
+    )
+    parser_template_create.add_argument(
+        "template_name",
+        type=str,
+        help="Name for the new template (e.g., 'my-lower-third').",
+    )
+    parser_template_create.set_defaults(func=handle_template_create)
 
     args = parser.parse_args()
     try:

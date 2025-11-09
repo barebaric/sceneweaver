@@ -12,12 +12,14 @@ class VideoSettings:
         fps: Optional[int],
         output_file: Optional[str],
         font: str = "DejaVuSans",
+        audio_recording_path: str = "audio",
     ):
         self.width = width
         self.height = height
         self.fps = fps
         self.output_file = output_file
         self.font = font
+        self.audio_recording_path = audio_recording_path
 
     def validate(self):
         """Validates the video settings."""
@@ -49,6 +51,7 @@ class VideoSettings:
             fps=data.get("fps"),
             output_file=data.get("output_file"),
             font=validated_font,
+            audio_recording_path=data.get("audio_recording_path", "audio"),
         )
         instance.validate()
         return instance

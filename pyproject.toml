@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "setuptools_scm[toml]>=6.2"]
+requires = ["setuptools>=61.0", "setuptools-scm>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
@@ -29,18 +29,23 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "moviepy>=2.2.1",
-    "PyYAML>=6.0",
-    "pathlib2>=2.3.6; python_version<'3.4'",
+    "moviepy>=2.0.0",
+    "ruamel.yaml>=0.17",
+    "platformdirs>=4.5.0,<5",
+    "sounddevice",
 ]
 
 [project.optional-dependencies]
+# Dependencies for development (testing, linting, etc.)
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "black>=22.0",
-    "flake8>=5.0",
-    "mypy>=1.0",
+    "flake8",
+    "pyflakes",
+    "pyright",
+    "ruff",
+    "pre-commit"
 ]
 
 [project.urls]
@@ -58,9 +63,3 @@ include = ["sceneweaver*"]
 [tool.black]
 line-length = 79
 target-version = ['py38']
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true

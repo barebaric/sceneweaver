@@ -7,6 +7,8 @@ settings:
   # Default font for all text elements. Can be a font name your system
   # recognizes (e.g., "Arial") or a path to a .ttf file.
   font: DejaVuSans
+  # Default sub-folder for storing newly recorded audio.
+  audio_recording_path: audio
 
 scenes:
   - type: title_card
@@ -18,6 +20,12 @@ scenes:
     # font: Impact
     cache:
       max-size: 1GB
+    # To record audio for this scene, run:
+    # pixi record-audio spec.yaml:intro_card
+    # Then add the file path here.
+    audio:
+      - file: audio/intro_card.wav
+        shift: -0.5 # Start audio 0.5s before scene begins
 
   - type: image
     id: main_content
@@ -55,6 +63,9 @@ scenes:
     file: ~/path/to/your/video.mp4
     cache:
       max-size: 5GB
+    # Audio specified here will REPLACE the video's original audio.
+    # audio:
+    #   - file: audio/my_narration.mp3
 
   - type: video-images
     id: image_sequence

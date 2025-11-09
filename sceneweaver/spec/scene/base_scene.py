@@ -1,9 +1,16 @@
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 import numpy as np
-from moviepy import VideoClip, ImageClip, CompositeVideoClip
+from moviepy import (
+    VideoClip,
+    ImageClip,
+    CompositeVideoClip,
+    AudioFileClip,
+    CompositeAudioClip,
+)
 from ...errors import ValidationError
 from ..annotation.base_annotation import BaseAnnotation
+from ..audio_spec import AudioTrackSpec
 from ..effect.base_effect import BaseEffect
 from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
@@ -20,6 +27,7 @@ class BaseScene:
         annotations: Optional[List[BaseAnnotation]] = None,
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
+        audio: Optional[List[AudioTrackSpec]] = None,
     ):
         self.type = type
         self.id = id
@@ -27,6 +35,7 @@ class BaseScene:
         self.annotations = annotations or []
         self.effects = effects or []
         self.transition = transition
+        self.audio = audio or []
 
     def validate(self):
         """Validates the scene's configuration."""
@@ -36,12 +45,34 @@ class BaseScene:
                 "required 'id' field."
             )
 
+    def find_asset(self, file_name: str, assets: List[Path]) -> Optional[Path]:
+        """Finds a resolved asset path from the prepared list."""
+        for asset_path in assets:
+            if asset_path.name == Path(file_name).name:
+                return asset_path
+        return None
+
     def prepare(self, base_dir: Path) -> List[Path]:
         """
         Prepares the scene by resolving all necessary asset paths.
         This method should be overridden by subclasses that use external files.
         """
-        return []
+        resolved_assets = []
+        if self.audio:
+            for track in self.audio:
+                expanded_path = Path(track.file).expanduser()
+                absolute_path = (
+                    expanded_path
+                    if expanded_path.is_absolute()
+                    else (base_dir / expanded_path).resolve()
+                )
+                if not absolute_path.is_file():
+                    raise ValidationError(
+                        f"In scene '{self.id}', audio file not found at "
+                        f"resolved path: {absolute_path}"
+                    )
+                resolved_assets.append(absolute_path)
+        return resolved_assets
 
     def _apply_annotations_to_clip(
         self, base_clip: VideoClip, settings: VideoSettings
@@ -61,6 +92,40 @@ class BaseScene:
         ).with_duration(base_clip.duration)
 
         return CompositeVideoClip([base_clip, annotation_clip])
+
+    def _apply_audio_to_clip(
+        self, base_clip: VideoClip, assets: List[Path]
+    ) -> VideoClip:
+        """Loads and attaches audio tracks to the scene's clip."""
+        if not self.audio:
+            return base_clip
+
+        print(f"Attaching audio to scene '{self.id}'...")
+        audio_clips = []
+        for track in self.audio:
+            audio_path = self.find_asset(track.file, assets)
+            if not audio_path:
+                # This should ideally not happen if prepare() is correct
+                raise FileNotFoundError(
+                    f"Could not find prepared asset for audio file: "
+                    f"{track.file}"
+                )
+
+            audio_clip = AudioFileClip(str(audio_path))
+
+            # Apply shift
+            if track.shift != 0:
+                audio_clip = audio_clip.with_start(track.shift)
+
+            # TODO: Apply filters from track.filters
+
+            audio_clips.append(audio_clip)
+
+        if audio_clips:
+            scene_audio = CompositeAudioClip(audio_clips)
+            return base_clip.with_audio(scene_audio)
+
+        return base_clip
 
     def render(
         self, assets: List[Path], settings: VideoSettings

@@ -1,7 +1,13 @@
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from moviepy import VideoClip, VideoFileClip, concatenate_videoclips
+from moviepy import (
+    VideoClip,
+    VideoFileClip,
+    concatenate_videoclips,
+    AudioFileClip,
+    CompositeAudioClip,
+)
 from moviepy.video.fx import Resize
 from .cache import CacheManager
 from .loader import load_spec
@@ -65,7 +71,20 @@ class VideoGenerator:
         if use_cache:
             cached_path = self.cache.get(composite_id, raw_scene, assets)
             if cached_path:
-                return VideoFileClip(str(cached_path))
+                clip = VideoFileClip(str(cached_path))
+                # Ensure audio is loaded from cached file
+                if clip.audio is None and scene.audio:
+                    audio_clips = []
+                    for track in scene.audio:
+                        audio_path = scene.find_asset(track.file, assets)
+                        if audio_path:
+                            audio_clip = AudioFileClip(str(audio_path))
+                            if track.shift != 0:
+                                audio_clip = audio_clip.with_start(track.shift)
+                            audio_clips.append(audio_clip)
+                    if audio_clips:
+                        clip = clip.with_audio(CompositeAudioClip(audio_clips))
+                return clip
 
         if use_cache:
             print("Cache miss. Generating scene...")

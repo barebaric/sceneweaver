@@ -9,9 +9,10 @@ platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
 python = ">=3.8"
 pyyaml = ">=6.0"
 platformdirs = ">=4.5.0,<5"
+scipy = "*"
+python-sounddevice = "*"
 
 [pypi-dependencies]
-moviepy = ">=2.2.1"
 sceneweaver = { editable = true, path = "." }
 build = "*"
 
@@ -35,13 +36,39 @@ default = ["dev"]
 build = ["build"]
 
 [tasks]
-test = "pytest -v"
-flake = "flake8 --ignore=E127,E128,E121,E123,E126,E203,E226,E24,E704,W503,W504 --builtins=_ sceneweaver tests"
-pyflakes = { env = { PYFLAKES_BUILTINS = "_" }, cmd = "pyflakes sceneweaver tests" }
-pyright = "pyright"
 lint = { depends-on = ["flake", "pyflakes", "pyright"] }
 format = "ruff format sceneweaver tests"
 sceneweaver = "python -m sceneweaver"
 
+[tasks.test]
+cmd = "pytest -v"
+depends-on = ["clean"]
+
+[tasks.clean]
+description = "Remove build artifacts and caches."
+cmd = [
+    "rm", "-rf",
+    "dist",
+    "build",
+    ".ruff_cache",
+    ".pytest_cache",
+    ".pyright_cache",
+    '"**/*/__pycache__"',
+    '"*.egg-info"',
+    "sceneweaver/_version.py",
+]
+
+[tasks.flake]
+cmd = "flake8 --ignore=E127,E128,E121,E123,E126,E203,E226,E24,E704,W503,W504 --builtins=_ sceneweaver tests"
+
+[tasks.pyflakes]
+cmd = "pyflakes sceneweaver tests"
+env = { PYFLAKES_BUILTINS = "_" }
+
+[tasks.pyright]
+cmd = "pyright"
+
 [tasks.wheel]
+description = "Build the project wheel"
 cmd = "python -m build --wheel --outdir dist"
+depends-on = ["clean"]

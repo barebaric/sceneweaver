@@ -4,6 +4,7 @@ import re
 import glob
 from moviepy import ImageSequenceClip, VideoClip
 from ..annotation.base_annotation import BaseAnnotation
+from ..audio_spec import AudioTrackSpec
 from ..effect.base_effect import BaseEffect
 from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
@@ -22,6 +23,7 @@ class VideoImagesScene(BaseScene):
         annotations: Optional[List[BaseAnnotation]] = None,
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
+        audio: Optional[List[AudioTrackSpec]] = None,
     ):
         super().__init__(
             "video-images",
@@ -30,11 +32,13 @@ class VideoImagesScene(BaseScene):
             annotations=annotations,
             effects=effects,
             transition=transition,
+            audio=audio,
         )
         self.fps = fps
         self.file = file
 
     def prepare(self, base_dir: Path) -> List[Path]:
+        resolved_assets = super().prepare(base_dir)
         expanded_path = Path(self.file).expanduser()
         pattern = str(
             expanded_path
@@ -48,19 +52,36 @@ class VideoImagesScene(BaseScene):
                 for text in re.split("([0-9]+)", s)
             ]
 
-        return sorted(
+        image_files = sorted(
             [Path(p) for p in glob.glob(pattern)],
             key=lambda x: natural_sort_key(x.name),
         )
+        resolved_assets.extend(image_files)
+        return resolved_assets
 
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        if not assets:
+        # Filter out non-image assets like audio files for this operation
+        image_assets = [
+            p
+            for p in assets
+            if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]
+        ]
+        if not image_assets:
             print(f"Warning: No images found for pattern: {self.file}")
             return None
-        base_clip = ImageSequenceClip([str(p) for p in assets], fps=self.fps)
-        return self._apply_annotations_to_clip(base_clip, settings)
+
+        base_clip = ImageSequenceClip(
+            [str(p) for p in image_assets], fps=self.fps
+        )
+        visual_duration = base_clip.duration
+
+        annotated_clip = self._apply_annotations_to_clip(base_clip, settings)
+        clip_with_audio = self._apply_audio_to_clip(annotated_clip, assets)
+
+        # Enforce the scene's duration AFTER audio is attached.
+        return clip_with_audio.with_duration(visual_duration)
 
     @classmethod
     def from_dict(
@@ -91,6 +112,13 @@ class VideoImagesScene(BaseScene):
             else None
         )
 
+        audio_data = data.get("audio", [])
+        if isinstance(audio_data, dict):  # Allow single audio object
+            audio_data = [audio_data]
+        audio_tracks = [
+            AudioTrackSpec.from_dict(track, base_dir) for track in audio_data
+        ]
+
         return cls(
             fps=data["fps"],
             file=data["file"],
@@ -99,4 +127,5 @@ class VideoImagesScene(BaseScene):
             annotations=annotations,
             effects=effects,
             transition=transition,
+            audio=audio_tracks,
         )

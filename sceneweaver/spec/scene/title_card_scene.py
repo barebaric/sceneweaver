@@ -3,6 +3,7 @@ from pathlib import Path
 from moviepy import TextClip, ColorClip, CompositeVideoClip, VideoClip
 from ...errors import ValidationError
 from ...font import find_font
+from ..audio_spec import AudioTrackSpec
 from ..video_settings import VideoSettings
 from .base_scene import BaseScene
 from ..annotation.base_annotation import BaseAnnotation
@@ -23,6 +24,7 @@ class TitleCardScene(BaseScene):
         annotations: Optional[List[BaseAnnotation]] = None,
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
+        audio: Optional[List[AudioTrackSpec]] = None,
     ):
         super().__init__(
             "title_card",
@@ -31,6 +33,7 @@ class TitleCardScene(BaseScene):
             annotations=annotations,
             effects=effects,
             transition=transition,
+            audio=audio,
         )
         self.duration = duration
         self.title = title
@@ -95,9 +98,13 @@ class TitleCardScene(BaseScene):
         )
 
         base_clip = CompositeVideoClip([background, title, subtitle])
-        final_clip = base_clip.with_duration(self.duration)
+        visual_clip = base_clip.with_duration(self.duration)
 
-        return self._apply_annotations_to_clip(final_clip, settings)
+        annotated_clip = self._apply_annotations_to_clip(visual_clip, settings)
+        clip_with_audio = self._apply_audio_to_clip(annotated_clip, assets)
+
+        # Enforce the scene's duration AFTER audio is attached.
+        return clip_with_audio.with_duration(self.duration)
 
     @classmethod
     def from_dict(
@@ -133,6 +140,13 @@ class TitleCardScene(BaseScene):
             else None
         )
 
+        audio_data = data.get("audio", [])
+        if isinstance(audio_data, dict):  # Allow single audio object
+            audio_data = [audio_data]
+        audio_tracks = [
+            AudioTrackSpec.from_dict(track, base_dir) for track in audio_data
+        ]
+
         instance = cls(
             duration=data.get("duration"),
             title=data.get("title"),
@@ -144,6 +158,7 @@ class TitleCardScene(BaseScene):
             annotations=annotations,
             effects=effects,
             transition=transition,
+            audio=audio_tracks,
         )
         instance.validate()
         return instance

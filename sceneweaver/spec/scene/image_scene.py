@@ -11,6 +11,7 @@ from moviepy.video.fx import Crop, Resize
 from PIL import ImageColor
 from ...errors import ValidationError
 from ..annotation.base_annotation import BaseAnnotation
+from ..audio_spec import AudioTrackSpec
 from ..effect.base_effect import BaseEffect
 from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
@@ -35,6 +36,7 @@ class ImageScene(BaseScene):
         bg_color: str = "black",
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
+        audio: Optional[List[AudioTrackSpec]] = None,
     ):
         super().__init__(
             "image",
@@ -43,11 +45,11 @@ class ImageScene(BaseScene):
             annotations=annotations,
             effects=effects,
             transition=transition,
+            audio=audio,
         )
         self.duration = duration
         self.frames = frames
         self.image = image
-        # self.annotations is handled by super class
         self.zoom = zoom
         self.stretch = stretch
         self.position = position
@@ -78,6 +80,7 @@ class ImageScene(BaseScene):
                 )
 
     def prepare(self, base_dir: Path) -> List[Path]:
+        resolved_assets = super().prepare(base_dir)
         assert self.image is not None
         expanded_path = Path(self.image).expanduser()
         absolute_path = (
@@ -92,7 +95,8 @@ class ImageScene(BaseScene):
                 f"resolved path: {absolute_path}"
             )
 
-        return [absolute_path]
+        resolved_assets.append(absolute_path)
+        return resolved_assets
 
     def _create_background_with_image(
         self, content_clip: VideoClip, settings: VideoSettings
@@ -204,7 +208,9 @@ class ImageScene(BaseScene):
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        if not assets:
+        assert self.image is not None
+        image_path = self.find_asset(self.image, assets)
+        if not image_path:
             return None
 
         if self.frames is not None:
@@ -215,18 +221,21 @@ class ImageScene(BaseScene):
 
         assert self._calculated_duration is not None
 
-        image_path = assets[0]
         img_clip = ImageClip(str(image_path)).with_duration(
             self._calculated_duration
         )
 
-        final_clip: VideoClip
+        visual_clip: VideoClip
         if self.zoom:
-            final_clip = self._render_zoomed_scene(img_clip, settings)
+            visual_clip = self._render_zoomed_scene(img_clip, settings)
         else:
-            final_clip = self._render_static_scene(img_clip, settings)
+            visual_clip = self._render_static_scene(img_clip, settings)
 
-        return final_clip.with_duration(self._calculated_duration)
+        clip_with_audio = self._apply_audio_to_clip(visual_clip, assets)
+
+        # Enforce the scene's duration AFTER audio is attached.
+        # This prevents audio from changing the final clip's length.
+        return clip_with_audio.with_duration(self._calculated_duration)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "ImageScene":
@@ -235,6 +244,13 @@ class ImageScene(BaseScene):
             for ann in data.get("annotations", [])
         ]
         zoom = ZoomSpec.from_dict(data["zoom"]) if "zoom" in data else None
+
+        audio_data = data.get("audio", [])
+        if isinstance(audio_data, dict):  # Allow single audio object
+            audio_data = [audio_data]
+        audio_tracks = [
+            AudioTrackSpec.from_dict(track, base_dir) for track in audio_data
+        ]
 
         cache_config = None
         if "cache" in data:
@@ -272,6 +288,7 @@ class ImageScene(BaseScene):
             bg_color=data.get("bg_color", "black"),
             effects=effects,
             transition=transition,
+            audio=audio_tracks,
         )
         instance.validate()
         return instance

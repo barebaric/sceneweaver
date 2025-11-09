@@ -1,7 +1,7 @@
 <svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
   <style>
     .title {
-      font-family: "DejaVu Sans", sans-serif;
+      font-family: "{{ font_family }}", sans-serif;
       font-size: 100px;
       font-weight: bold;
       fill: white;

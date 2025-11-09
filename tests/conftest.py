@@ -52,3 +52,62 @@ def dummy_audio_path(base_dir: Path) -> Path:
 
     write(audio_path, sample_rate, data.astype(np.int16))
     return audio_path
+
+
+@pytest.fixture
+def templates_dir(tmp_path: Path) -> Path:
+    """Creates a base directory for mock templates."""
+    tdir = tmp_path / "templates"
+    tdir.mkdir()
+    return tdir
+
+
+@pytest.fixture
+def simple_template_path(templates_dir: Path) -> Path:
+    """Creates a simple mock template and returns its path."""
+    template_path = templates_dir / "simple"
+    template_path.mkdir()
+    (template_path / "template.yaml").write_text(
+        """
+- type: image
+  image: "image.png"
+  params:
+    title: "{{ title | default('Default Title') }}"
+"""
+    )
+    return template_path
+
+
+@pytest.fixture
+def template_with_asset_path(templates_dir: Path) -> Path:
+    """Creates a mock template that includes its own asset."""
+    template_path = templates_dir / "with_asset"
+    template_path.mkdir()
+    (template_path / "template.yaml").write_text(
+        """
+- type: image
+  image: "logo.png" # This asset is inside the template dir
+"""
+    )
+    # Create the asset file that the template refers to
+    img = Image.new("RGB", (5, 5), color="red")
+    img.save(template_path / "logo.png")
+    return template_path
+
+
+@pytest.fixture
+def multi_scene_template_path(templates_dir: Path) -> Path:
+    """Creates a mock template that expands to two scenes."""
+    template_path = templates_dir / "multi"
+    template_path.mkdir()
+    (template_path / "template.yaml").write_text(
+        """
+- type: image
+  id: scene_one
+  image: "a.png"
+- type: image
+  id: scene_two
+  image: "b.png"
+"""
+    )
+    return template_path

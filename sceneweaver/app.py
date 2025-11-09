@@ -218,12 +218,12 @@ def handle_scene_add(args):
 
     # Always prompt for required fields based on scene type
     title_text_for_id = "new_scene"
-    if scene_type == "svg_template":
+    if scene_type == "svg":
+        template["template"] = input("Enter path to the SVG template file: ")
         template["params"] = {
-            "title": input("Enter a title for the new scene: "),
-            "subtitle": input("Enter a subtitle (optional): "),
+            "text": input("Enter a text parameter for the SVG: "),
         }
-        title_text_for_id = template["params"]["title"]
+        title_text_for_id = Path(template["template"]).stem
     elif scene_type == "image":
         template["image"] = input("Enter the path to the image file: ")
         title_text_for_id = Path(template["image"]).stem
@@ -362,7 +362,7 @@ def main():
         "scene_type",
         nargs="?",
         default=None,
-        help="Optional: type of scene to add (e.g., svg_template, image).",
+        help="Optional: type of scene to add (e.g., image, svg).",
     )
     parser_scene_add.set_defaults(func=handle_scene_add)
 

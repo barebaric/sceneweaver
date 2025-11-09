@@ -169,14 +169,14 @@ class BaseScene:
     def _get_scene_types(cls) -> Dict[str, Type["BaseScene"]]:
         """Central registry of scene types."""
         from .image_scene import ImageScene
-        from .svg_template_scene import SvgTemplateScene
+        from .svg_scene import SvgScene
         from .template_scene import TemplateScene
         from .video_scene import VideoScene
         from .video_images_scene import VideoImagesScene
 
         return {
             "image": ImageScene,
-            "svg_template": SvgTemplateScene,
+            "svg": SvgScene,
             "template": TemplateScene,
             "video": VideoScene,
             "video-images": VideoImagesScene,

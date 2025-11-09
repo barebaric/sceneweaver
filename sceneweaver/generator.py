@@ -142,6 +142,13 @@ class VideoGenerator:
         i = 0
         while i < len(clips_to_process):
             clip_a = clips_to_process[i]
+
+            # If the clip is None, it was fully consumed by a
+            # previous transition.
+            if not clip_a:
+                i += 1
+                continue
+
             scene_a = scenes[i]
 
             # Check for an outgoing transition
@@ -173,8 +180,7 @@ class VideoGenerator:
                     clips_to_process[i + 1] = None  # type: ignore
             else:
                 # No transition, just add the whole clip
-                if clip_a:
-                    final_segments.append(clip_a)
+                final_segments.append(clip_a)
 
             i += 1
 

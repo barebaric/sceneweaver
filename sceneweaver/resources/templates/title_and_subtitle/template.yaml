@@ -1,0 +1,10 @@
+- type: svg
+  template: animated_title.svg
+  duration: 3
+  params:
+    main_title: "{{ title }}"
+    subtitle: "{{ subtitle | default('') }}"
+    accent_color: "{{ accent_color | default('#4682B4') }}"
+    # Allow specific font overrides, but default to the global font
+    title_font: "{{ title_font | default(font) }}"
+    subtitle_font: "{{ subtitle_font | default(font) }}"

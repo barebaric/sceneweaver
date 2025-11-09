@@ -1,0 +1,39 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+  <defs/>
+  <!-- Jinja can calculate values for any attribute -->
+  <style>
+        .title { font: bold 90px "{{ title_font }}", sans-serif; fill: white; }
+        .subtitle { font: 45px "{{ subtitle_font }}", sans-serif; fill: #cccccc; }
+    </style>
+  <!-- Fading and sliding background rectangle -->
+  <rect
+     x="360"
+     y="390"
+     width="1200"
+     height="300"
+     fill="#222222"
+     stroke="{{ accent_color }}"
+     stroke-width="5"
+     rx="15"
+     opacity="{{ min(1, progress / 0.2) }}"
+     id="rect1" />
+  <!-- Text aligned within the rectangle -->
+  <text
+     x="960"
+     y="536"
+     class="title"
+     text-anchor="middle"
+     opacity="{{ min(1, (progress - 0.1) / 0.3) }}"
+     id="text1">
+    {{ main_title }}
+  </text>
+  <text
+     x="960"
+     y="606"
+     class="subtitle"
+     text-anchor="middle"
+     opacity="{{ min(1, (progress - 0.2) / 0.3) }}"
+     id="text2">
+    {{ subtitle }}
+  </text>
+</svg>

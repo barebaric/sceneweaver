@@ -1,8 +1,6 @@
-import importlib.resources
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
-from importlib.resources.abc import Traversable
+from typing import Any, Dict, List, Optional
 
 import cairosvg
 from jinja2 import Environment, FileSystemLoader
@@ -16,12 +14,12 @@ from ..video_settings import VideoSettings
 from .base_scene import BaseScene
 
 
-class SvgTemplateScene(BaseScene):
+class SvgScene(BaseScene):
     def __init__(
         self,
-        duration: float,
+        template: str,
         base_dir: Path,
-        template: Optional[str] = None,
+        duration: Optional[float] = None,
         params: Optional[Dict[str, Any]] = None,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
@@ -30,7 +28,7 @@ class SvgTemplateScene(BaseScene):
         audio: Optional[List[AudioTrackSpec]] = None,
     ):
         super().__init__(
-            "svg_template",
+            "svg",
             base_dir=base_dir,
             id=id,
             cache=cache,
@@ -41,89 +39,62 @@ class SvgTemplateScene(BaseScene):
         self.duration = duration
         self.template = template
         self.params = params or {}
-
-    @staticmethod
-    def _get_default_template_path() -> Traversable:
-        """Returns the path to the default built-in SVG template."""
-        return (
-            importlib.resources.files("sceneweaver")
-            / "resources"
-            / "templates"
-            / "default_svg"
-            / "template.svg"
-        )
+        self._calculated_duration: Optional[float] = None
 
     def validate(self):
         super().validate()
-        if self.duration is None or self.duration <= 0:
+        if self.duration is None and not self.audio:
             raise ValidationError(
-                f"Scene '{self.id}' requires a positive 'duration'."
+                f"Scene '{self.id}' requires 'duration' if no 'audio' "
+                "is provided."
+            )
+        if not self.template:
+            raise ValidationError(
+                f"Scene '{self.id}' is missing the required 'template' field."
             )
 
     def prepare(self) -> List[Any]:
         resolved_assets = super().prepare()
-        if self.template:
-            template_path = (self.base_dir / self.template).resolve()
-            if not template_path.is_file():
-                raise ValidationError(
-                    f"In scene '{self.id}', template file not found at "
-                    f"resolved path: {template_path}"
-                )
-            resolved_assets.append(template_path)
-        else:
-            # Add the default template to the assets list for caching
-            path = cast(Path, self._get_default_template_path())
-            resolved_assets.append(path)
+        template_path = (self.base_dir / self.template).resolve()
+        if not template_path.is_file():
+            raise ValidationError(
+                f"In scene '{self.id}', template file not found at "
+                f"resolved path: {template_path}"
+            )
+        resolved_assets.append(template_path)
         return resolved_assets
 
     def render(
         self, assets: List[Any], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        assert settings.width is not None and settings.height is not None
-        assert settings.fps is not None and self.duration is not None
-
-        env: Environment
-        template_content: str
-
-        if self.template:
-            # Logic for user-provided template
-            user_template_path = self.find_asset(self.template, assets)
-            if not user_template_path or not isinstance(
-                user_template_path, Path
-            ):
-                raise FileNotFoundError(f"Template not found: {self.template}")
-
-            env = Environment(
-                loader=FileSystemLoader(searchpath=user_template_path.parent)
-            )
-            template = env.get_template(user_template_path.name)
+        # Determine duration hierarchy: spec > audio
+        if self.duration is not None:
+            self._calculated_duration = self.duration
         else:
-            # For packaged resources, we get the parent directory first
-            default_template_dir = (
-                importlib.resources.files("sceneweaver")
-                / "resources"
-                / "templates"
-                / "default_svg"
-            )
-            default_template_path = default_template_dir / "template.svg"
-            template_content = default_template_path.read_text(
-                encoding="utf-8"
+            self._calculated_duration = self._get_duration_from_audio(assets)
+
+        if self._calculated_duration is None:
+            raise ValidationError(
+                f"Could not determine duration for scene '{self.id}'."
             )
 
-            with importlib.resources.as_file(
-                default_template_dir
-            ) as base_path:
-                env = Environment(
-                    loader=FileSystemLoader(searchpath=base_path)
-                )
-            template = env.from_string(template_content)
+        assert settings.width is not None and settings.height is not None
+        assert settings.fps is not None
 
+        user_template_path = self.find_asset(self.template, assets)
+        if not user_template_path or not isinstance(user_template_path, Path):
+            raise FileNotFoundError(f"Template not found: {self.template}")
+
+        env = Environment(
+            loader=FileSystemLoader(searchpath=user_template_path.parent)
+        )
+        template = env.get_template(user_template_path.name)
         env.globals.update(min=min, max=max, round=round, abs=abs)
 
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
             frame_paths = []
-            total_frames = int(self.duration * settings.fps)
+            total_frames = int(self._calculated_duration * settings.fps)
 
             print(f"Rendering {total_frames} frames for scene '{self.id}'...")
             for i in range(total_frames):
@@ -132,9 +103,9 @@ class SvgTemplateScene(BaseScene):
                     **self.params,
                     "timestamp": timestamp,
                     "frame": i,
-                    "duration": self.duration,
-                    "progress": timestamp / self.duration
-                    if self.duration > 0
+                    "duration": self._calculated_duration,
+                    "progress": timestamp / self._calculated_duration
+                    if self._calculated_duration > 0
                     else 0,
                 }
                 rendered_svg_str = template.render(context)
@@ -159,23 +130,26 @@ class SvgTemplateScene(BaseScene):
             )
 
         clip_with_audio = self._apply_audio_to_clip(visual_clip, assets)
-        return clip_with_audio.with_duration(self.duration)
+        return clip_with_audio.with_duration(self._calculated_duration)
 
     @classmethod
     def get_template(cls) -> Dict[str, Any]:
         return {
-            "type": "svg_template",
+            "type": "svg",
             "duration": 5,
+            "template": "path/to/your/template.svg",
             "params": {
-                "title": "Default SVG Title",
-                "subtitle": "Rendered with CairoSVG",
+                "text_variable": "Hello World",
             },
         }
 
     @classmethod
-    def from_dict(
-        cls, data: Dict[str, Any], base_dir: Path
-    ) -> "SvgTemplateScene":
+    def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "SvgScene":
+        if "template" not in data:
+            raise ValidationError(
+                "Scene type 'svg' is missing required field: 'template'."
+            )
+
         audio_data = data.get("audio", [])
         if isinstance(audio_data, dict):
             audio_data = [audio_data]
@@ -193,9 +167,9 @@ class SvgTemplateScene(BaseScene):
         )
 
         instance = cls(
-            duration=data["duration"],
+            duration=data.get("duration"),
+            template=data["template"],
             base_dir=base_dir,
-            template=data.get("template"),
             params=data.get("params"),
             id=data.get("id"),
             cache=data.get("cache"),

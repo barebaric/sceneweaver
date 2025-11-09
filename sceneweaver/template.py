@@ -11,14 +11,15 @@ settings:
   audio_recording_path: audio
 
 scenes:
-  - type: svg_template
+  - type: template
+    name: title_and_subtitle
     id: intro_card
-    duration: 5
-    # This scene uses the default built-in SVG template.
-    # It renders the parameters below into an SVG for each frame.
-    params:
+    with:
       title: My Awesome Video
       subtitle: A subtitle describing the content
+      # You can optionally override the default accent color
+      # accent_color: "#FFC300"
+      duration: 5
     cache:
       max-size: 1GB
     # To record audio for this scene, run:

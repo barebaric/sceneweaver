@@ -49,14 +49,13 @@ class VideoGenerator:
         raw_scene: Dict[str, Any],
         temp_dir: Path,
         index: int,
-    ) -> Optional[Path]:
+    ) -> Optional[VideoClip]:
         """
         Processes a single scene, handling caching and rendering.
-        Returns the path to the generated clip file, or None if skipped.
+        Returns the rendered VideoClip object, or None if skipped.
         """
         print(f"Processing scene {index + 1}: {scene.id} ({scene.type})")
 
-        clip_path: Optional[Path] = None
         # Caching requires a stable scene ID.
         use_cache = scene.cache is not None and not self.force
         assets = scene.prepare(self.base_dir)
@@ -64,57 +63,104 @@ class VideoGenerator:
         composite_id = f"{self.spec_path}::{scene.id}"
 
         if use_cache:
-            clip_path = self.cache.get(composite_id, raw_scene, assets)
+            cached_path = self.cache.get(composite_id, raw_scene, assets)
+            if cached_path:
+                return VideoFileClip(str(cached_path))
 
-        if not clip_path:
-            if use_cache:
-                print("Cache miss. Generating scene...")
-            else:
-                print("Generating scene...")
+        if use_cache:
+            print("Cache miss. Generating scene...")
+        else:
+            print("Generating scene...")
 
-            clip = scene.render(assets, self.settings)
+        clip = scene.render(assets, self.settings)
 
-            if clip:
-                # Apply a final resize if the generated clip doesn't match the
-                # target size.
-                if clip.size != list(self.size):
-                    clip = clip.with_effects([Resize(height=self.size[1])])
-                    assert isinstance(clip, VideoClip)
+        if not clip:
+            print(f"Skipping scene {index + 1} as no clip was generated.")
+            return None
 
-                temp_clip_path = temp_dir / f"scene_{index}.mp4"
-                with tempfile.NamedTemporaryFile(suffix=".aac") as temp_audio:
-                    clip.write_videofile(
-                        str(temp_clip_path),
-                        fps=self.settings.fps,
-                        codec="libx264",
-                        audio_codec="aac",
-                        temp_audiofile=temp_audio.name,
-                    )
+        # Apply a final resize if the generated clip doesn't match the
+        # target size.
+        if clip.size != list(self.size):
+            clip = clip.with_effects([Resize(height=self.size[1])])
+            assert isinstance(clip, VideoClip)
 
-                clip_path = temp_clip_path
-                if use_cache:
-                    clip_path = self.cache.put(
-                        composite_id,
-                        raw_scene,
-                        assets,
-                        temp_clip_path,
-                        scene.cache,
-                    )
+        if use_cache:
+            temp_clip_path = temp_dir / f"scene_{index}.mp4"
+            with tempfile.NamedTemporaryFile(suffix=".aac") as temp_audio:
+                clip.write_videofile(
+                    str(temp_clip_path),
+                    fps=self.settings.fps,
+                    codec="libx264",
+                    audio_codec="aac",
+                    temp_audiofile=temp_audio.name,
+                )
 
-            else:
-                print(f"Skipping scene {index + 1} as no clip was generated.")
+            self.cache.put(
+                composite_id,
+                raw_scene,
+                assets,
+                temp_clip_path,
+                scene.cache,
+            )
 
-        return clip_path
+        return clip
 
-    def _assemble_final_video(self, clip_paths: List[Path]):
-        """Concatenates all scene clips and writes the final video file."""
-        if not clip_paths:
-            print("No scenes were processed or generated. Exiting.")
+    def _assemble_and_write(
+        self, clips: List[VideoClip], scenes: List[BaseScene]
+    ):
+        """Assembles clips with transitions and writes the final video."""
+        if not clips:
+            print("No clips to assemble. Exiting.")
             return
 
-        print("All scenes processed. Concatenating clips...")
-        final_clips = [VideoFileClip(str(p)) for p in clip_paths]
-        final_video = concatenate_videoclips(final_clips, method="compose")
+        print("\n--- Stage 3: Assembling with Transitions ---")
+        final_segments = []
+        # Use a copy of the list to allow in-place modification for subclip
+        clips_to_process = list(clips)
+
+        i = 0
+        while i < len(clips_to_process):
+            clip_a = clips_to_process[i]
+            scene_a = scenes[i]
+
+            # Check for an outgoing transition
+            if scene_a.transition and (i + 1) < len(clips_to_process):
+                transition = scene_a.transition
+                d = transition.duration
+                clip_b = clips_to_process[i + 1]
+
+                print(
+                    f"Applying {transition.type} ({d}s) between "
+                    f"'{scene_a.id}' and '{scenes[i + 1].id}'"
+                )
+
+                # Add main part of clip A
+                if clip_a.duration > d:
+                    final_segments.append(
+                        clip_a.subclipped(0, clip_a.duration - d)
+                    )
+
+                # Create and add the transition clip
+                transition_clip = transition.apply(clip_a, clip_b)
+                final_segments.append(transition_clip)
+
+                # Shorten clip B for the next iteration if needed
+                if clip_b.duration > d:
+                    clips_to_process[i + 1] = clip_b.subclipped(d)
+                else:
+                    # The next clip is consumed entirely by the transition
+                    clips_to_process[i + 1] = None  # type: ignore
+            else:
+                # No transition, just add the whole clip
+                if clip_a:
+                    final_segments.append(clip_a)
+
+            i += 1
+
+        print("\nAll scenes processed. Concatenating final segments...")
+        final_video = concatenate_videoclips(
+            [c for c in final_segments if c is not None], method="compose"
+        )
 
         assert self.settings.output_file is not None
         expanded_path = Path(self.settings.output_file).expanduser()
@@ -151,19 +197,49 @@ class VideoGenerator:
                 raise ValueError(
                     f"Scene with ID '{self.target_scene_id}' not found."
                 )
+            # When targeting a single scene, we don't apply transitions
             scenes_to_process = [self.spec.scenes[i] for i in indices]
             raw_scenes_to_process = [
                 self.spec_dict["scenes"][i] for i in indices
             ]
+            for s in scenes_to_process:
+                s.transition = None
+                s.effects = []
 
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
-            final_clip_paths: List[Path] = []
+
+            # Stage 1: Render Base Clips
+            print("--- Stage 1: Rendering Base Clips ---")
+            rendered_data = []
             for i, (scene, raw_scene) in enumerate(
                 zip(scenes_to_process, raw_scenes_to_process)
             ):
-                clip_path = self._process_scene(scene, raw_scene, temp_dir, i)
-                if clip_path:
-                    final_clip_paths.append(clip_path)
+                clip = self._process_scene(scene, raw_scene, temp_dir, i)
+                if clip:
+                    # Keep scene and clip aligned for later stages
+                    rendered_data.append({"scene": scene, "clip": clip})
 
-            self._assemble_final_video(final_clip_paths)
+            if not rendered_data:
+                print("No clips were rendered. Exiting.")
+                return
+
+            base_clips = [rd["clip"] for rd in rendered_data]
+            scenes_with_clips = [rd["scene"] for rd in rendered_data]
+
+            # Stage 2: Apply Single-Clip Effects
+            print("\n--- Stage 2: Applying Effects ---")
+            effect_clips = []
+            for i, scene in enumerate(scenes_with_clips):
+                modified_clip = base_clips[i]
+                if scene.effects:
+                    for effect in scene.effects:
+                        print(
+                            f"Applying effect '{effect.type}' "
+                            f"({effect.duration}s) to scene '{scene.id}'"
+                        )
+                        modified_clip = effect.apply(modified_clip)
+                effect_clips.append(modified_clip)
+
+            # Stage 3: Assemble with Transitions and Write
+            self._assemble_and_write(effect_clips, scenes_with_clips)

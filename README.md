@@ -40,10 +40,13 @@ scenes:
     type: title_card
     duration: 3
     title: Hello, SceneWeaver!
+    transition:
+      type: cross-fade
+      duration: 1
 
   - id: main_image
     type: image
-    duration: 5
+    duration: 10
     image: "~/path/to/your/image.png"
     stretch: false # Preserves aspect ratio
     width: 80 # As 80% of the screen width
@@ -51,6 +54,19 @@ scenes:
       - type: text
         location: bottom
         content: This is a caption for the image.
+    cache:
+      max-size: "2GB"
+    transition:
+      type: cross-fade
+      duration: 2
+
+  - id: outro
+    type: video
+    fps: 25
+    file: something.mp4
+    effects:
+      - type: fade-out
+        duration: 1
 ```
 
 #### Other Commands

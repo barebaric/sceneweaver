@@ -10,10 +10,12 @@ from moviepy import (
 from moviepy.video.fx import Crop, Resize
 from PIL import ImageColor
 from ...errors import ValidationError
-from .base_scene import BaseScene
 from ..annotation.base_annotation import BaseAnnotation
-from ..zoom_spec import ZoomSpec
+from ..effect.base_effect import BaseEffect
+from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
+from ..zoom_spec import ZoomSpec
+from .base_scene import BaseScene
 
 
 class ImageScene(BaseScene):
@@ -31,8 +33,17 @@ class ImageScene(BaseScene):
         width: Optional[int] = None,
         height: Optional[int] = None,
         bg_color: str = "black",
+        effects: Optional[List[BaseEffect]] = None,
+        transition: Optional[BaseTransition] = None,
     ):
-        super().__init__("image", id=id, cache=cache, annotations=annotations)
+        super().__init__(
+            "image",
+            id=id,
+            cache=cache,
+            annotations=annotations,
+            effects=effects,
+            transition=transition,
+        )
         self.duration = duration
         self.frames = frames
         self.image = image
@@ -237,6 +248,15 @@ class ImageScene(BaseScene):
             elif isinstance(cache_value, dict):
                 cache_config = cache_value
 
+        effects = [
+            BaseEffect.from_dict(eff) for eff in data.get("effects", [])
+        ]
+        transition = (
+            BaseTransition.from_dict(data["transition"])
+            if "transition" in data
+            else None
+        )
+
         instance = cls(
             duration=data.get("duration"),
             frames=data.get("frames"),
@@ -250,6 +270,8 @@ class ImageScene(BaseScene):
             width=data.get("width"),
             height=data.get("height"),
             bg_color=data.get("bg_color", "black"),
+            effects=effects,
+            transition=transition,
         )
         instance.validate()
         return instance

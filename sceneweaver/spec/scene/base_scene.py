@@ -4,6 +4,8 @@ import numpy as np
 from moviepy import VideoClip, ImageClip, CompositeVideoClip
 from ...errors import ValidationError
 from ..annotation.base_annotation import BaseAnnotation
+from ..effect.base_effect import BaseEffect
+from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
 
 
@@ -16,11 +18,15 @@ class BaseScene:
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
+        effects: Optional[List[BaseEffect]] = None,
+        transition: Optional[BaseTransition] = None,
     ):
         self.type = type
         self.id = id
         self.cache = cache
         self.annotations = annotations or []
+        self.effects = effects or []
+        self.transition = transition
 
     def validate(self):
         """Validates the scene's configuration."""

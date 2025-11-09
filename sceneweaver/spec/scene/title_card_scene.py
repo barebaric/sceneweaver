@@ -3,9 +3,11 @@ from pathlib import Path
 from moviepy import TextClip, ColorClip, CompositeVideoClip, VideoClip
 from ...errors import ValidationError
 from ...font import find_font
-from ..annotation.base_annotation import BaseAnnotation
 from ..video_settings import VideoSettings
 from .base_scene import BaseScene
+from ..annotation.base_annotation import BaseAnnotation
+from ..effect.base_effect import BaseEffect
+from ..transition.base_transition import BaseTransition
 
 
 class TitleCardScene(BaseScene):
@@ -19,9 +21,16 @@ class TitleCardScene(BaseScene):
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
+        effects: Optional[List[BaseEffect]] = None,
+        transition: Optional[BaseTransition] = None,
     ):
         super().__init__(
-            "title_card", id=id, cache=cache, annotations=annotations
+            "title_card",
+            id=id,
+            cache=cache,
+            annotations=annotations,
+            effects=effects,
+            transition=transition,
         )
         self.duration = duration
         self.title = title
@@ -115,6 +124,14 @@ class TitleCardScene(BaseScene):
             BaseAnnotation.from_dict(ann, base_dir)
             for ann in data.get("annotations", [])
         ]
+        effects = [
+            BaseEffect.from_dict(eff) for eff in data.get("effects", [])
+        ]
+        transition = (
+            BaseTransition.from_dict(data["transition"])
+            if "transition" in data
+            else None
+        )
 
         instance = cls(
             duration=data.get("duration"),
@@ -125,6 +142,8 @@ class TitleCardScene(BaseScene):
             id=data.get("id"),
             cache=cache_config,
             annotations=annotations,
+            effects=effects,
+            transition=transition,
         )
         instance.validate()
         return instance

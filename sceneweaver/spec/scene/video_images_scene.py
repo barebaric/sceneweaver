@@ -4,6 +4,8 @@ import re
 import glob
 from moviepy import ImageSequenceClip, VideoClip
 from ..annotation.base_annotation import BaseAnnotation
+from ..effect.base_effect import BaseEffect
+from ..transition.base_transition import BaseTransition
 from ..video_settings import VideoSettings
 from .base_scene import BaseScene
 
@@ -18,9 +20,16 @@ class VideoImagesScene(BaseScene):
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
+        effects: Optional[List[BaseEffect]] = None,
+        transition: Optional[BaseTransition] = None,
     ):
         super().__init__(
-            "video-images", id=id, cache=cache, annotations=annotations
+            "video-images",
+            id=id,
+            cache=cache,
+            annotations=annotations,
+            effects=effects,
+            transition=transition,
         )
         self.fps = fps
         self.file = file
@@ -73,6 +82,14 @@ class VideoImagesScene(BaseScene):
             BaseAnnotation.from_dict(ann, base_dir)
             for ann in data.get("annotations", [])
         ]
+        effects = [
+            BaseEffect.from_dict(eff) for eff in data.get("effects", [])
+        ]
+        transition = (
+            BaseTransition.from_dict(data["transition"])
+            if "transition" in data
+            else None
+        )
 
         return cls(
             fps=data["fps"],
@@ -80,4 +97,6 @@ class VideoImagesScene(BaseScene):
             id=data.get("id"),
             cache=cache_config,
             annotations=annotations,
+            effects=effects,
+            transition=transition,
         )

@@ -41,6 +41,9 @@ scenes:
         font: Courier-New
         color: yellow
         fontsize: 48
+    transition:
+      type: cross-fade
+      duration: 2
 
   - type: image
     id: short_image
@@ -58,4 +61,7 @@ scenes:
     fps: 25
     file: ~/path/to/frames/*.png
     cache: true
+    effects:
+      - type: fade-out
+        duration: 1
 """

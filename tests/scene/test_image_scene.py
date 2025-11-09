@@ -7,7 +7,7 @@ from sceneweaver.errors import ValidationError
 
 
 def test_image_scene_creation_and_validation(
-    dummy_image_path: Path, base_dir: Path
+    dummy_image_path: Path, dummy_audio_path: Path, base_dir: Path
 ):
     """Tests creation and validation logic for ImageScene."""
     # Valid scene with duration
@@ -26,17 +26,25 @@ def test_image_scene_creation_and_validation(
         "id": "img2",
         "frames": 150,
         "image": str(dummy_image_path),
-        "stretch": True,
     }
     scene_frames = ImageScene.from_dict(data_frames, base_dir)
     assert scene_frames.frames == 150
 
-    # Missing both duration and frames should fail
+    # Valid scene with audio
+    data_audio = {
+        "id": "img3",
+        "image": str(dummy_image_path),
+        "audio": [{"file": str(dummy_audio_path)}],
+    }
+    scene_audio = ImageScene.from_dict(data_audio, base_dir)
+    assert len(scene_audio.audio) == 1
+
+    # Missing duration, frames, AND audio should fail
     with pytest.raises(
-        ValidationError, match="requires either 'duration' or 'frames'"
+        ValidationError, match="requires 'duration', 'frames', or 'audio'"
     ):
         ImageScene.from_dict(
-            {"id": "img3", "image": "path.png"}, base_dir=base_dir
+            {"id": "img4", "image": "path.png"}, base_dir=base_dir
         )
 
 
@@ -82,3 +90,27 @@ def test_image_scene_render(
     assert clip.duration == 2.0
     # With stretch=True, the clip size should match the canvas size
     assert clip.size == (video_settings.width, video_settings.height)
+
+
+def test_image_scene_render_with_audio_duration(
+    video_settings: VideoSettings,
+    dummy_image_path: Path,
+    dummy_audio_path: Path,
+    base_dir: Path,
+):
+    """Tests that duration is correctly inferred from an audio file."""
+    scene = ImageScene.from_dict(
+        {
+            "id": "img1",
+            "image": str(dummy_image_path),
+            "audio": [{"file": str(dummy_audio_path)}],
+        },
+        base_dir=base_dir,
+    )
+
+    assets = scene.prepare(base_dir)
+    clip = scene.render(assets, video_settings)
+
+    assert isinstance(clip, VideoClip)
+    assert clip.duration == pytest.approx(2.5)  # From dummy_audio_path
+    assert clip.audio is not None

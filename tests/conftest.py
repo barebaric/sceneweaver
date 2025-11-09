@@ -1,6 +1,8 @@
 import pytest
 from pathlib import Path
 from PIL import Image
+import numpy as np
+from scipy.io.wavfile import write
 from sceneweaver.spec.video_settings import VideoSettings
 
 
@@ -31,3 +33,22 @@ def dummy_image_path(base_dir: Path) -> Path:
     img = Image.new("RGB", (10, 10), color="black")
     img.save(image_path)
     return image_path
+
+
+@pytest.fixture
+def dummy_audio_path(base_dir: Path) -> Path:
+    """Creates a dummy audio file of a known duration and returns its path."""
+    audio_path = base_dir / "test_audio.wav"
+    sample_rate = 44100
+    duration_seconds = 2.5
+    frequency = 440  # A4 note
+
+    num_samples = int(duration_seconds * sample_rate)
+    t = np.linspace(
+        0.0, duration_seconds, num_samples, endpoint=False, dtype=np.float32
+    )
+    amplitude = np.iinfo(np.int16).max * 0.5
+    data = amplitude * np.sin(2.0 * np.pi * frequency * t)
+
+    write(audio_path, sample_rate, data.astype(np.int16))
+    return audio_path

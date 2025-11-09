@@ -2246,8 +2246,8 @@ packages:
   timestamp: 1762483250576
 - pypi: ./
   name: sceneweaver
-  version: 0.1.dev1+gb7efaade6.d20251108
-  sha256: 1f9cb4a6fa0319b969aaef5df1d3c2c43e55cd85f07c267893d87ab950a18c75
+  version: 0.1.2.dev0+ga08e3ad11.d20251109
+  sha256: b03985b13dd84cb335625ee157a798e356132c9f5c949bb0a90f575d72ed5b5e
   requires_dist:
   - moviepy>=2.2.1
   - pyyaml>=6.0

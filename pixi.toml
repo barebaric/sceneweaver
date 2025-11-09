@@ -5,9 +5,6 @@ authors = ["SceneWeaver Team"]
 channels = ["conda-forge"]
 platforms = ["linux-64", "win-64", "osx-64", "osx-arm64"]
 
-[tool.pixi.version]
-source = "git"
-
 [dependencies]
 python = ">=3.8"
 pyyaml = ">=6.0"

@@ -10,6 +10,7 @@ build
 media
 *.egg-info
 .msys2_env
+sceneweaver/_version.py
 
 .flatpak-builder
 repo

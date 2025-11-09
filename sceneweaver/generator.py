@@ -1,13 +1,15 @@
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 from moviepy import (
     VideoClip,
     VideoFileClip,
     concatenate_videoclips,
     AudioFileClip,
     CompositeAudioClip,
+    CompositeVideoClip,
 )
+from moviepy.audio.fx import AudioNormalize
 from moviepy.video.fx import Resize
 from .cache import CacheManager
 from .loader import load_spec
@@ -180,6 +182,15 @@ class VideoGenerator:
         final_video = concatenate_videoclips(
             [c for c in final_segments if c is not None], method="compose"
         )
+
+        # Normalize the audio of the final clip to ensure consistent volume
+        if final_video.audio:
+            print("Normalizing final audio...")
+            # Instantiate the AudioNormalize class and apply it
+            effect = AudioNormalize()
+            final_video = cast(
+                CompositeVideoClip, final_video.with_effects([effect])
+            )
 
         assert self.settings.output_file is not None
         expanded_path = Path(self.settings.output_file).expanduser()

@@ -40,10 +40,14 @@ class VideoSpec:
         scenes_data = data.get("scenes", [])
 
         settings = VideoSettings.from_dict(settings_data, base_dir)
-        scenes = [
-            BaseScene.from_dict(scene_data, base_dir)
-            for scene_data in scenes_data
-        ]
+        scene_defaults = settings.scene_defaults
+
+        scenes = []
+        for scene_data in scenes_data:
+            # Merge defaults with scene-specific data here.
+            # Scene-specific values will overwrite defaults.
+            merged_data = {**scene_defaults, **scene_data}
+            scenes.append(BaseScene.from_dict(merged_data, base_dir))
 
         instance = cls(settings=settings, scenes=scenes)
         instance.validate()

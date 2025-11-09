@@ -13,6 +13,7 @@ class VideoSettings:
         output_file: Optional[str],
         font: str = "DejaVuSans",
         audio_recording_path: str = "audio",
+        scene_defaults: Optional[Dict[str, Any]] = None,
     ):
         self.width = width
         self.height = height
@@ -20,6 +21,7 @@ class VideoSettings:
         self.output_file = output_file
         self.font = font
         self.audio_recording_path = audio_recording_path
+        self.scene_defaults = scene_defaults or {}
 
     def validate(self):
         """Validates the video settings."""
@@ -52,6 +54,7 @@ class VideoSettings:
             output_file=data.get("output_file"),
             font=validated_font,
             audio_recording_path=data.get("audio_recording_path", "audio"),
+            scene_defaults=data.get("scene_defaults", {}),
         )
         instance.validate()
         return instance

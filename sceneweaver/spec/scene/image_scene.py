@@ -257,7 +257,7 @@ class ImageScene(BaseScene):
 
         cache_config = None
         if "cache" in data:
-            cache_value = data["cache"]
+            cache_value = data.get("cache")
             if cache_value is False:
                 cache_config = None
             elif cache_value is True:
@@ -270,9 +270,11 @@ class ImageScene(BaseScene):
         effects = [
             BaseEffect.from_dict(eff) for eff in data.get("effects", [])
         ]
+
+        transition_data = data.get("transition")
         transition = (
-            BaseTransition.from_dict(data["transition"])
-            if "transition" in data
+            BaseTransition.from_dict(transition_data)
+            if transition_data
             else None
         )
 

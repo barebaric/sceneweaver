@@ -3710,16 +3710,19 @@ packages:
   timestamp: 1762483250576
 - pypi: ./
   name: sceneweaver
-  version: 0.5.dev0+g0a7ba87c8.d20251110
-  sha256: de1a74f82ea75d636e959510ae5ee9caba7dd687656ca199f16ace2e89a4574e
+  version: 0.5.dev6+g85e5e5f1c.d20251110
+  sha256: 9c6ff8cf2734501b3f1de3a1493959e740099acbc324bc831b843a1f57afc0f4
   requires_dist:
   - moviepy>=2.0.0
-  - ruamel-yaml>=0.17
+  - ruamel-yaml>=0.17,<0.19
   - platformdirs>=4.5.0,<5
   - sounddevice
   - noisereduce
   - cairosvg
   - jinja2
+  - pillow>=10.0
+  - numpy>=1.20
+  - scipy>=1.6
   - pytest>=7.0 ; extra == 'dev'
   - pytest-cov>=4.0 ; extra == 'dev'
   - black>=22.0 ; extra == 'dev'

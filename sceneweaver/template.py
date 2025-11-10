@@ -79,24 +79,37 @@ scenes:
 """
 
 TEMPLATE_BOILERPLATE_YAML = """
-# This is a boilerplate template.yaml file for a new SceneWeaver template.
+# This is the main definition file for a new SceneWeaver template.
+# It contains one or more scenes that will be rendered when this
+# template is used.
 #
-# A template provides a set of default values for scenes.
-# The user can then override any of these defaults directly in their spec file.
+# KEY CONCEPTS:
+# 1. Use Jinja2 variables (e.g., `{{ title }}`) to accept user input.
+# 2. These variables must be defined in a corresponding `params.yaml` file.
+# 3. The user provides values for these variables in a `with:` block in
+#    their main spec file.
 #
 # EXAMPLE:
-# This template defines 'duration: 5'. A user can override this by writing
-# 'duration: 10' on the template block in their main spec file.
+# A user's spec might contain this:
+#
+#   - type: template
+#     name: this_template_name
+#     id: my_title_scene
+#     with:
+#       title: "Hello from my spec!"
+#       duration: 5
+#
+# This `template.yaml` receives `title` and `duration` as Jinja2 variables.
 
-# A template should NOT define an 'id'. This must be set by the user.
+# A template should NOT define an 'id'. The user provides this.
 
 - type: svg
-  # Defaults for the template
-  duration: 5
-  template: "template.svg" # Asset paths are relative to this file.
+  id: my_svg_svene
+  duration: "{{ duration | default(3) }}"
+  template: template.svg  # relative to template
 
-  # Parameters to be filled by the 'with:' block
+  # Pass the 'title' variable from the `with:` block into the SVG's own
+  # parameters.
   params:
-    line1: "{{ line1 | default('Default Line 1') }}"
-    line2: "{{ line2 | default('Default Line 2') }}"
+    text_content: "{{ title }}"
 """

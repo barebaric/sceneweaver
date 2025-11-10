@@ -7,16 +7,16 @@ version-controllable video production.
 For larger projects it supports modular composition and caching, and you can include other
 videos as well.
 
-| Feature                                   |                                                                            |
-| :---------------------------------------- | -------------------------------------------------------------------------- |
-| ✅ **Re-usable Templates**                | Check the [template library](docs/templates.md) for a gallery.             |
-| ✅ **Animated SVGs**                      | Generate complex, animated graphics using templated SVG files.             |
-| ✅ **Repeatable Production**              | Define videos in a version-controllable YAML specification.                |
-| ✅ **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.). |
-| ✅ **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.  |
-| ✅ **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.    |
-| ✅ **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                  |
-| ✅ **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                    |
+| Feature                                   |                                                                               |
+| :---------------------------------------- | ----------------------------------------------------------------------------- |
+| ✅ **Re-usable Templates**                | Check the [template library](docs/templates.md) for a gallery.                |
+| ✅ **Animated SVGs**                      | Generate complex, animated graphics using [templated SVG files](docs/svg.md). |
+| ✅ **Repeatable Production**              | Define videos in a version-controllable YAML specification.                   |
+| ✅ **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.).    |
+| ✅ **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.     |
+| ✅ **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.       |
+| ✅ **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                     |
+| ✅ **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                       |
 
 ## Installation
 
@@ -85,30 +85,6 @@ scenes:
 
 ### Other Commands
 
-#### Managing Scenes
-
-SceneWeaver provides interactive commands to help you build your spec file quickly.
-
-- **Add a new scene:**
-
-  ```bash
-  # Interactively prompts for ID, type, and required info
-  sceneweaver scene add my_video.yaml
-
-  # Directly specify the new scene's ID and type
-  sceneweaver scene add my_video.yaml:new_intro image
-  ```
-
-- **Record audio for a scene:**
-
-  ```bash
-  # Interactively prompts to select a scene to record for
-  sceneweaver scene audio my_video.yaml
-
-  # Directly target a scene by its ID
-  sceneweaver scene audio my_video.yaml:main_image
-  ```
-
 #### Rendering and Cache
 
 - **Render a single scene** (for quick previews):
@@ -128,58 +104,49 @@ SceneWeaver provides interactive commands to help you build your spec file quick
   sceneweaver clean
   ```
 
-#### Using SVG Templates
+#### Managing Scenes
 
-For creating complex, animated graphics or title cards, you can use the `svg`
-scene type. This scene renders an SVG file for every frame, allowing you to create
-dynamic animations by parameterizing the SVG's attributes.
+- **Interactively add a new scene** to your spec file. It will prompt for the scene type and required details.
 
-It uses the [Jinja2](https://jinja.palletsprojects.com/) templating language, which
-gives you access to special variables inside your SVG file.
+  ```bash
+  sceneweaver scene add my_video.yaml
+  ```
 
-**Example YAML:**
+- **Add a new `image` scene non-interactively** with a specific ID (`new_intro`).
 
-```yaml
-- id: animated_intro
-  type: svg
-  duration: 5
-  # The path to your SVG file, relative to the spec
-  template: templates/my_card.svg
-  # Parameters to be passed into the template
-  params:
-    main_title: "SVG is Powerful"
-    accent_color: "tomato"
-```
+  ```bash
+  sceneweaver scene add my_video.yaml:new_intro image
+  ```
 
-**Available Jinja2 Variables in your SVG:**
-Your SVG template has access to all keys from the `params` block, as well as these
-special variables for creating animations:
+- **Record audio for a scene.** It will prompt you to select which scene from the file.
 
-- `progress`: A float from `0.0` to `1.0` representing the scene's completion.
-- `timestamp`: The current time in seconds (e.g., `2.5`).
-- `duration`: The total duration of the scene in seconds.
-- `frame`: The current frame number.
-- `min()`, `max()`, `round()`: Useful functions for calculations.
+  ```bash
+  sceneweaver scene audio my_video.yaml
+  ```
 
-**Example `my_card.svg`:**
-You can use these variables to dynamically change any attribute in your SVG file.
+- **Directly record audio** for the scene with the ID `main_image`.
+  ```bash
+  sceneweaver scene audio my_video.yaml:main_image
+  ```
 
-```xml
-<svg width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
-    <!-- Use a parameter for the stroke color -->
-    <rect x="360" y="400" width="1200" height="300"
-          stroke="{{ accent_color }}" stroke-width="5" rx="15"
+#### Managing Templates
 
-          <!-- Use 'progress' to animate the opacity from 0 to 1 -->
-          opacity="{{ min(1, progress / 0.2) }}"
-    />
+- **List all available** built-in and user-created templates.
 
-    <!-- Use another parameter for the text content -->
-    <text x="960" y="550" font-size="90" text-anchor="middle" fill="white">
-        {{ main_title }}
-    </text>
-</svg>
-```
+  ```bash
+  sceneweaver template list
+  ```
+
+- **Show details about a specific template**, including its parameters and a usage example.
+
+  ```bash
+  sceneweaver template info title_and_subtitle
+  ```
+
+- **Create a new, empty user template** in your local configuration directory, ready for you to customize.
+  ```bash
+  sceneweaver template create my_custom_title
+  ```
 
 ## Development
 

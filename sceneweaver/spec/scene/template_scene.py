@@ -311,34 +311,3 @@ class TemplateScene(BaseScene):
             duration=data.get("duration"),
             frames=data.get("frames"),
         )
-
-    @classmethod
-    def get_asset_path(cls, template_name: str, asset_name: str) -> Path:
-        """Get the path to an asset file for a template."""
-        template_manager = TemplateManager()
-        template_dir = template_manager.resolve(template_name)
-        asset_path = template_dir / asset_name
-
-        if not asset_path.is_file():
-            raise ValidationError(
-                f"Template '{template_name}' is missing an "
-                f"'{asset_name}' file."
-            )
-
-        return asset_path
-
-    @classmethod
-    def get_example(cls, template_name: str) -> Dict[str, Any]:
-        """Get example parameters for a template from its example.yaml file."""
-        example_path = cls.get_asset_path(template_name, "example.yaml")
-
-        yaml_parser = YAML(typ="safe")
-        try:
-            with open(example_path, "r", encoding="utf-8") as f:
-                example_data = yaml_parser.load(f)
-            return example_data or {}
-        except Exception as e:
-            raise ValidationError(
-                f"Error loading example.yaml for template "
-                f"'{template_name}': {e}"
-            )

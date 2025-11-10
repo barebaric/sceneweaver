@@ -86,12 +86,21 @@ def get_builtin_templates() -> List[str]:
     return sorted(template_names)
 
 
-def extract_yaml_from_example(template_name: str) -> Dict[str, Any]:
+def extract_yaml_from_example(
+    template_name: str, manager: TemplateManager
+) -> Dict[str, Any]:
     """Extract YAML parameters from a template's example.yaml file."""
     try:
-        example_data = TemplateScene.get_example(template_name)
+        example_yaml_str = manager.get_example(template_name)
+        example_data = yaml.safe_load(example_yaml_str)
 
-        # Extract the 'with' parameters from the scene
+        # The example is expected to be a list of scenes
+        if isinstance(example_data, list) and len(example_data) > 0:
+            scene = example_data[0]
+            if isinstance(scene, dict) and "with" in scene:
+                return scene["with"]
+
+        # Fallback for full spec format
         if isinstance(example_data, dict) and "scenes" in example_data:
             scenes = example_data["scenes"]
             if isinstance(scenes, list) and len(scenes) > 0:
@@ -101,16 +110,18 @@ def extract_yaml_from_example(template_name: str) -> Dict[str, Any]:
 
         return {}
     except Exception as e:
-        print(f"Error loading example for {template_name}: {e}")
+        print(f"Error loading or parsing example for {template_name}: {e}")
         return {}
 
 
-def create_template_screenshot(template_name: str, template_dir: Path) -> Path:
+def create_template_screenshot(
+    template_name: str, template_dir: Path, manager: TemplateManager
+) -> Path:
     """Create a screenshot for a template and return the path to the image."""
     print(f"Generating screenshot for template: {template_name}")
 
     # Extract parameters from example.yaml
-    template_params = extract_yaml_from_example(template_name)
+    template_params = extract_yaml_from_example(template_name, manager)
     if not template_params:
         print(f"Warning: No parameters found for {template_name}, using empty")
         template_params = {}
@@ -123,9 +134,6 @@ def create_template_screenshot(template_name: str, template_dir: Path) -> Path:
         output_file="temp.mp4",
         font="DejaVuSans",
     )
-
-    # Get template manager
-    template_manager = TemplateManager()
 
     # Create a temporary spec file for this template
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -164,9 +172,7 @@ def create_template_screenshot(template_name: str, template_dir: Path) -> Path:
         # Create template scene
         scene_data = spec_dict["scenes"][0]
         template_scene = TemplateScene.from_dict(scene_data, temp_path)
-        template_scene._load_internal_spec(
-            settings, jinja_env, template_manager
-        )
+        template_scene._load_internal_spec(settings, jinja_env, manager)
 
         # Prepare assets and resolve durations
         assets = template_scene.prepare()
@@ -320,14 +326,13 @@ def load_parameter_docs(template_dir: Path) -> str:
 
 
 def generate_readme_file(
-    template_name: str, template_dir: Path, parameters: Dict[str, Any]
+    template_name: str, template_dir: Path, manager: TemplateManager
 ):
     """Generate a README.md file for a template."""
     print(f"Generating README for template: {template_name}")
 
     # Use raw YAML from example file to preserve formatting
-    example_path = TemplateScene.get_asset_path(template_name, "example.yaml")
-    usage_params = example_path.read_text()
+    usage_params = manager.get_example(template_name)
 
     # Load parameter descriptions from params.yaml
     param_description = load_parameter_docs(template_dir)
@@ -416,17 +421,19 @@ def main():
                 template_dir = template_manager.resolve(template_name)
 
             # Extract parameters from example.yaml
-            template_params = extract_yaml_from_example(template_name)
+            template_params = extract_yaml_from_example(
+                template_name, template_manager
+            )
             if not template_params:
                 print(f"Warning: No parameters found for {template_name}")
                 template_params = {}
 
             # Generate README file
-            generate_readme_file(template_name, template_dir, template_params)
+            generate_readme_file(template_name, template_dir, template_manager)
 
             # Create screenshot
             image_path = create_template_screenshot(
-                template_name, template_dir
+                template_name, template_dir, template_manager
             )
             print(f"Screenshot saved to: {image_path}")
 

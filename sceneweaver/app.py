@@ -6,7 +6,7 @@ import importlib.resources
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from .cache import CacheManager
-from .errors import ValidationError
+from .errors import ValidationError, TemplateNotFoundError
 from .generator import VideoGenerator
 from .recorder import AudioRecorder
 from .spec.scene import BaseScene
@@ -111,6 +111,55 @@ def handle_template_create(args):
         f"Edit the new template file at:\n"
         f"  {new_template_path / 'template.yaml'}"
     )
+
+
+def handle_template_info(args):
+    """Displays detailed information about a specific template."""
+    manager = TemplateManager()
+    template_name = args.template_name
+
+    try:
+        # Resolve path first to ensure the template exists.
+        manager.resolve(template_name)
+
+        print(f"--- Template Info: {template_name} ---")
+
+        # 1. Display Parameters
+        params = manager.get_params(template_name)
+        print("\nParameters (for the 'with:' block):")
+        if not params:
+            print("  This template has no configurable parameters.")
+        else:
+            for name, details in params.items():
+                param_type = details.get("type", "any")
+                param_desc = details.get("description")
+                is_optional = details.get("optional", False)
+
+                optional = "optional" if is_optional else "required"
+                if is_optional and "default" in details:
+                    default = f", default: {repr(details['default'])}"
+                else:
+                    default = ""
+
+                print(f"  - {name} ({param_type}, {optional}{default}):")
+                print(f"      {param_desc}")
+
+        # 2. Display Example Usage
+        example_content = manager.get_example(template_name)
+        print("\nExample Usage (copy to your spec file 'scenes:' list):")
+        indented_example = "\n".join(
+            f"  {line}" for line in example_content.strip().split("\n")
+        )
+        print(indented_example)
+
+    except TemplateNotFoundError as e:
+        print(f"\nError: {e}", file=sys.stderr)
+        # Suggest available templates
+        print(
+            "\nUse 'sceneweaver template list' to see available templates.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def _slugify(text: str) -> str:
@@ -481,6 +530,16 @@ def main():
         help="Name for the new template (e.g., 'my-lower-third').",
     )
     parser_template_create.set_defaults(func=handle_template_create)
+
+    parser_template_info = template_subparsers.add_parser(
+        "info", help="Show details about a specific template."
+    )
+    parser_template_info.add_argument(
+        "template_name",
+        type=str,
+        help="Name of the template to inspect (e.g., 'simple_title').",
+    )
+    parser_template_info.set_defaults(func=handle_template_info)
 
     args = parser.parse_args()
     try:

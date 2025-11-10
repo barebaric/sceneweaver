@@ -22,7 +22,7 @@ videos as well.
 
 ```bash
 sudo apt install ffmpeg portaudio19-dev     # Ubuntu 24.04. May be different on other distros
-pip install sceneweaver
+pipx install sceneweaver
 ```
 
 ## Usage

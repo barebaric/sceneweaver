@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union, Sequence
 from importlib.resources.abc import Traversable
 import platformdirs
-import yaml
+from ruamel.yaml import YAML
 
 
 def parse_size(size_str: str) -> int:
@@ -32,15 +32,17 @@ class CacheManager:
     def _load_metadata(self) -> Dict[str, Any]:
         if not self.metadata_path.exists():
             return {"scenes": {}}
+        yaml_parser = YAML(typ="safe")
         with open(self.metadata_path, "r") as f:
-            data = yaml.safe_load(f) or {}
+            data = yaml_parser.load(f) or {}
             if "scenes" not in data:
                 return {"scenes": {}}
             return data
 
     def _save_metadata(self):
+        yaml_parser = YAML(typ="safe")
         with open(self.metadata_path, "w") as f:
-            yaml.safe_dump(self.metadata, f)
+            yaml_parser.dump(self.metadata, f)
 
     def _get_scene_hash(
         self,

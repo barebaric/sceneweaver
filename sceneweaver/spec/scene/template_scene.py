@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional, List, TYPE_CHECKING, Set
 from pathlib import Path
-import yaml
+from ruamel.yaml import YAML
 from jinja2 import Environment
 from moviepy import VideoClip
 from ...errors import ValidationError
@@ -82,7 +82,8 @@ class TemplateScene(BaseScene):
         rendered_yaml_str = template.render(context)
 
         self.rendered_yaml = rendered_yaml_str
-        scenes_data = yaml.safe_load(self.rendered_yaml) or []
+        yaml_parser = YAML(typ="safe")
+        scenes_data = yaml_parser.load(self.rendered_yaml) or []
         if not isinstance(scenes_data, list):
             scenes_data = [scenes_data]
 

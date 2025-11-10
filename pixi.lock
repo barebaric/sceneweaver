@@ -3710,8 +3710,8 @@ packages:
   timestamp: 1762483250576
 - pypi: ./
   name: sceneweaver
-  version: 0.3.dev4+gf119dbbb9.d20251109
-  sha256: f6a776f3477d601f190484bc7ada48551e3013759e70f105b7277163d3477c3e
+  version: 0.5.dev0+g0a7ba87c8.d20251110
+  sha256: de1a74f82ea75d636e959510ae5ee9caba7dd687656ca199f16ace2e89a4574e
   requires_dist:
   - moviepy>=2.0.0
   - ruamel-yaml>=0.17

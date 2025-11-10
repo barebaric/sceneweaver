@@ -1,5 +1,5 @@
 from pathlib import Path
-import yaml
+from ruamel.yaml import YAML
 from .spec import VideoSpec
 
 
@@ -14,8 +14,9 @@ def load_spec(spec_path: Path, base_dir: Path) -> tuple[VideoSpec, dict]:
         raise FileNotFoundError(f"Specification file not found: {spec_path}")
 
     print(f"Loading video specification from: {spec_path}")
+    yaml_parser = YAML(typ="safe")
     with open(spec_path, "r") as f:
-        spec_dict = yaml.safe_load(f)
+        spec_dict = yaml_parser.load(f)
 
     if not spec_dict:
         raise ValueError("Specification file is empty or invalid.")

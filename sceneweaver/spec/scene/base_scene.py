@@ -256,7 +256,7 @@ class BaseScene:
         """Returns the class for a given scene type name."""
         scene_map = cls._get_scene_types()
         if scene_type not in scene_map:
-            raise ValueError(f"Unknown scene type: {scene_type}")
+            raise ValueError(f"Unknown scene type: '{scene_type}'")
         return scene_map[scene_type]
 
     @classmethod
@@ -267,5 +267,15 @@ class BaseScene:
         scene_type = data.get("type")
         if not scene_type:
             raise ValidationError("Scene data is missing the 'type' field.")
-        scene_class = cls.get_scene_class(scene_type)
+
+        try:
+            scene_class = cls.get_scene_class(scene_type)
+        except ValueError as e:
+            scene_id = data.get("id", "(unknown id)")
+            available_types = sorted(cls.get_available_types() + ["template"])
+            raise ValidationError(
+                f"In scene '{scene_id}': Found invalid scene type "
+                f"'{scene_type}'. Must be one of: {', '.join(available_types)}"
+            ) from e
+
         return scene_class.from_dict(data, base_dir)

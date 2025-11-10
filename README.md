@@ -11,7 +11,7 @@ videos as well.
 | :---------------------------------------- | ----------------------------------------------------------------------------- |
 | ✅ **Re-usable Templates**                | Check the [template library](docs/templates.md) for a gallery.                |
 | ✅ **Animated SVGs**                      | Generate complex, animated graphics using [templated SVG files](docs/svg.md). |
-| ✅ **Repeatable Production**              | Define videos in a version-controllable YAML specification.                   |
+| ✅ **Repeatable Production**              | Define videos in a version-controllable [YAML specification](docs/specs.md).  |
 | ✅ **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.).    |
 | ✅ **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.     |
 | ✅ **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.       |

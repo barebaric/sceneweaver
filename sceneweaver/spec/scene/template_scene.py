@@ -313,17 +313,24 @@ class TemplateScene(BaseScene):
         )
 
     @classmethod
-    def get_example(cls, template_name: str) -> Dict[str, Any]:
-        """Get example parameters for a template from its example.yaml file."""
+    def get_asset_path(cls, template_name: str, asset_name: str) -> Path:
+        """Get the path to an asset file for a template."""
         template_manager = TemplateManager()
         template_dir = template_manager.resolve(template_name)
-        example_path = template_dir / "example.yaml"
+        asset_path = template_dir / asset_name
 
-        if not example_path.is_file():
+        if not asset_path.is_file():
             raise ValidationError(
                 f"Template '{template_name}' is missing an "
-                f"'example.yaml' file."
+                f"'{asset_name}' file."
             )
+
+        return asset_path
+
+    @classmethod
+    def get_example(cls, template_name: str) -> Dict[str, Any]:
+        """Get example parameters for a template from its example.yaml file."""
+        example_path = cls.get_asset_path(template_name, "example.yaml")
 
         yaml_parser = YAML(typ="safe")
         try:

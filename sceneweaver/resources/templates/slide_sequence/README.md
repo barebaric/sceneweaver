@@ -11,9 +11,12 @@ scenes:
     id: my_slide_sequence
     with:
       slides:
-        - text: 'First slide' duration: 2 
-        - text: 'Second slide' duration: 2 
-        - text: 'Third slide' duration: 2 
+        - text: 'First slide'
+          duration: 2 
+        - text: 'Second slide'
+          duration: 2 
+        - text: 'Third slide'
+          duration: 2 
 ```
 
 ## Preview

@@ -48,11 +48,6 @@ This is a built-in SceneWeaver template for creating {template_name} scenes.
 ## Usage
 
 ```yaml
-scenes:
-  - type: template
-    name: {template_name}
-    id: my_{template_name}
-    with:
 {usage_parameters}
 ```
 
@@ -227,24 +222,17 @@ def create_template_screenshot(template_name: str, template_dir: Path) -> Path:
 
 def format_parameters(parameters: Dict[str, Any]) -> str:
     """Format parameters for documentation."""
-    param_lines = []
-    for param, value in parameters.items():
-        if isinstance(value, str):
-            param_lines.append(f"      {param}: '{value}'")
-        elif isinstance(value, (int, float)):
-            param_lines.append(f"      {param}: {value}")
-        elif isinstance(value, list):
-            param_lines.append(f"      {param}:")
-            for item in value:
-                if isinstance(item, dict):
-                    line = "        - "
-                    for k, v in item.items():
-                        if isinstance(v, str):
-                            line += f"{k}: '{v}' "
-                        else:
-                            line += f"{k}: {v} "
-                    param_lines.append(line)
-    return "\n".join(param_lines)
+    # Use yaml.dump to properly format the parameters
+    yaml_str = yaml.dump(parameters, default_flow_style=False, indent=2)
+
+    # Add proper indentation to match the template
+    lines = yaml_str.split("\n")
+    indented_lines = []
+    for line in lines:
+        if line.strip():  # Skip empty lines
+            indented_lines.append(f"      {line}")
+
+    return "\n".join(indented_lines)
 
 
 def load_parameter_docs(template_dir: Path) -> str:
@@ -337,8 +325,9 @@ def generate_readme_file(
     """Generate a README.md file for a template."""
     print(f"Generating README for template: {template_name}")
 
-    # Format parameters for usage example
-    usage_params = format_parameters(parameters)
+    # Use raw YAML from example file to preserve formatting
+    example_path = TemplateScene.get_asset_path(template_name, "example.yaml")
+    usage_params = example_path.read_text()
 
     # Load parameter descriptions from params.yaml
     param_description = load_parameter_docs(template_dir)

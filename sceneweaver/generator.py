@@ -6,7 +6,7 @@ from moviepy import (
     VideoFileClip,
     CompositeVideoClip,
 )
-from moviepy.audio.fx import AudioNormalize
+from moviepy.audio.fx import AudioNormalize, MultiplyVolume
 from moviepy.video.fx import Resize
 from .cache import CacheManager
 from .loader import load_spec
@@ -147,9 +147,11 @@ class VideoGenerator:
         if final_video.audio:
             print("Normalizing final audio...")
             # Instantiate the AudioNormalize class and apply it
-            effect = AudioNormalize()
+            normalize = AudioNormalize()  # normalizes to -0db
+            adjust_volume = MultiplyVolume(self.settings.normalization)
             final_video = cast(
-                CompositeVideoClip, final_video.with_effects([effect])
+                CompositeVideoClip,
+                final_video.with_effects([normalize, adjust_volume]),
             )
 
         assert self.settings.output_file is not None

@@ -14,6 +14,7 @@ class VideoSettings:
         font: str = "DejaVuSans",
         audio_recording_path: str = "audio",
         scene_defaults: Optional[Dict[str, Any]] = None,
+        normalization: float = 0.9,
     ):
         self.width = width
         self.height = height
@@ -22,6 +23,7 @@ class VideoSettings:
         self.font = font
         self.audio_recording_path = audio_recording_path
         self.scene_defaults = scene_defaults or {}
+        self.normalization = normalization
 
     def validate(self):
         """Validates the video settings."""
@@ -55,6 +57,7 @@ class VideoSettings:
             font=validated_font,
             audio_recording_path=data.get("audio_recording_path", "audio"),
             scene_defaults=data.get("scene_defaults", {}),
+            normalization=data.get("normalization", 0.9),
         )
         instance.validate()
         return instance

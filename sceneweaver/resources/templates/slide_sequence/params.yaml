@@ -1,0 +1,20 @@
+parameters:
+  slides:
+    type: array
+    description: "Array of slide objects, each containing:"
+    optional: false
+    subparameters:
+      text:
+        type: string
+        description: "Text content for the slide"
+        optional: false
+      duration:
+        type: number
+        description: "Duration in seconds for this slide"
+        optional: false
+        default: 2
+  font:
+    type: string
+    description: "Font family to use (inherited from global settings)"
+    optional: true
+    default: the global font

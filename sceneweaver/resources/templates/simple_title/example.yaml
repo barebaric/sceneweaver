@@ -1,0 +1,7 @@
+scenes:
+  - type: template
+    name: simple_title
+    id: my_simple_title
+    with:
+      title: 'Example Title'
+      duration: 3

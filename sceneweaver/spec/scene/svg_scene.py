@@ -1,11 +1,10 @@
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
+from typing import Any, Dict, List, Optional, Union, Tuple
 import cairosvg
 from jinja2 import Environment, FileSystemLoader
-from moviepy import ImageSequenceClip, VideoClip
-
+from moviepy import ImageSequenceClip, VideoClip, ColorClip, CompositeVideoClip
+from PIL import ImageColor
 from ...errors import ValidationError
 from ..audio_spec import AudioTrackSpec
 from ..effect.base_effect import BaseEffect
@@ -19,13 +18,14 @@ class SvgScene(BaseScene):
         self,
         template: str,
         base_dir: Path,
-        duration: Optional[float] = None,
+        duration: Optional[Union[float, str]] = None,
         params: Optional[Dict[str, Any]] = None,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
         audio: Optional[List[AudioTrackSpec]] = None,
+        composite_on: Optional[str] = "black",
     ):
         super().__init__(
             "svg",
@@ -39,15 +39,16 @@ class SvgScene(BaseScene):
         self.duration = duration
         self.template = template
         self.params = params or {}
-        self._calculated_duration: Optional[float] = None
+        # Convert the color string to an RGB tuple upon initialization
+        self.composite_on: Optional[Tuple[int, int, int]] = None
+        if composite_on:
+            # getrgb can return RGBA, but ColorClip only wants RGB.
+            # So we slice the result to ensure we only get the first 3 values.
+            rgba_or_rgb = ImageColor.getrgb(composite_on)
+            self.composite_on = rgba_or_rgb[:3]
 
     def validate(self):
         super().validate()
-        if self.duration is None and not self.audio:
-            raise ValidationError(
-                f"Scene '{self.id}' requires 'duration' if no 'audio' "
-                "is provided."
-            )
         if not self.template:
             raise ValidationError(
                 f"Scene '{self.id}' is missing the required 'template' field."
@@ -67,18 +68,10 @@ class SvgScene(BaseScene):
     def render(
         self, assets: List[Any], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        if self.duration is not None:
-            self._calculated_duration = self.duration
-        else:
-            self._calculated_duration = self._get_duration_from_audio(assets)
-
-        if self._calculated_duration is None:
-            raise ValidationError(
-                f"Could not determine duration for scene '{self.id}'."
-            )
-
-        assert settings.width is not None and settings.height is not None
-        assert settings.fps is not None
+        assert self._calculated_duration is not None, (
+            "Duration must be resolved."
+        )
+        assert settings.width and settings.height and settings.fps
 
         user_template_path = self.find_asset(self.template, assets)
         if not user_template_path or not isinstance(user_template_path, Path):
@@ -124,9 +117,21 @@ class SvgScene(BaseScene):
                 )
                 return None
 
-            visual_clip = ImageSequenceClip(
-                frame_paths, fps=settings.fps, load_images=True
+            # Create the transparent overlay clip.
+            overlay_clip = ImageSequenceClip(
+                frame_paths, fps=settings.fps, with_mask=True, load_images=True
             )
+
+            visual_clip: VideoClip
+            if self.composite_on:
+                background = ColorClip(
+                    size=(settings.width, settings.height),
+                    color=self.composite_on,
+                    duration=self._calculated_duration,
+                )
+                visual_clip = CompositeVideoClip([background, overlay_clip])
+            else:
+                visual_clip = overlay_clip
 
         clip_with_audio = self._apply_audio_to_clip(visual_clip, assets)
         return clip_with_audio.with_duration(self._calculated_duration)
@@ -144,12 +149,8 @@ class SvgScene(BaseScene):
     def from_dict(cls, data: Dict[str, Any], base_dir: Path) -> "SvgScene":
         if "template" not in data:
             raise ValidationError(
-                "Scene type 'svg' is missing required field: 'template'."
+                "SvgScene missing required field: 'template'"
             )
-
-        duration_val = data.get("duration")
-        duration = float(duration_val) if duration_val is not None else None
-
         audio_data = data.get("audio", [])
         if isinstance(audio_data, dict):
             audio_data = [audio_data]
@@ -167,7 +168,7 @@ class SvgScene(BaseScene):
         )
 
         instance = cls(
-            duration=duration,
+            duration=data.get("duration"),
             template=data["template"],
             base_dir=base_dir,
             params=data.get("params"),
@@ -176,6 +177,7 @@ class SvgScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio_tracks,
+            composite_on=data.get("composite_on", "black"),
         )
         instance.validate()
         return instance

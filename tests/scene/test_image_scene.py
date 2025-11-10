@@ -6,10 +6,12 @@ from sceneweaver.spec.video_settings import VideoSettings
 from sceneweaver.errors import ValidationError
 
 
-def test_image_scene_creation_and_validation(
+def test_image_scene_creation(
     dummy_image_path: Path, dummy_audio_path: Path, base_dir: Path
 ):
-    """Tests creation and validation logic for ImageScene."""
+    """
+    Tests that ImageScene can be created with various valid configurations.
+    """
     # Valid scene with duration
     data = {
         "id": "img1",
@@ -20,7 +22,6 @@ def test_image_scene_creation_and_validation(
     scene = ImageScene.from_dict(data, base_dir)
     assert scene.duration == 5
     assert scene.stretch is True
-    assert scene.base_dir == base_dir
 
     # Valid scene with frames
     data_frames = {
@@ -31,7 +32,7 @@ def test_image_scene_creation_and_validation(
     scene_frames = ImageScene.from_dict(data_frames, base_dir)
     assert scene_frames.frames == 150
 
-    # Valid scene with audio
+    # Valid scene with audio (which implies duration)
     data_audio = {
         "id": "img3",
         "image": str(dummy_image_path),
@@ -40,13 +41,13 @@ def test_image_scene_creation_and_validation(
     scene_audio = ImageScene.from_dict(data_audio, base_dir)
     assert len(scene_audio.audio) == 1
 
-    # Missing duration, frames, AND audio should fail
-    with pytest.raises(
-        ValidationError, match="requires 'duration', 'frames', or 'audio'"
-    ):
-        ImageScene.from_dict(
-            {"id": "img4", "image": "path.png"}, base_dir=base_dir
-        )
+    # A scene with no duration source is valid, as it's considered "relative".
+    # It will fail during `resolve_duration` if no context is provided.
+    data_no_duration = {"id": "img4", "image": str(dummy_image_path)}
+    scene_no_duration = ImageScene.from_dict(data_no_duration, base_dir)
+    assert scene_no_duration.duration is None
+    assert scene_no_duration.frames is None
+    assert not scene_no_duration.audio
 
 
 def test_image_scene_prepare(base_dir: Path, dummy_image_path: Path):
@@ -78,7 +79,7 @@ def test_image_scene_prepare_missing_file(base_dir: Path):
 def test_image_scene_render(
     video_settings: VideoSettings, dummy_image_path: Path, base_dir: Path
 ):
-    """Tests the render method of ImageScene."""
+    """Tests the render method of ImageScene after resolving duration."""
     scene = ImageScene.from_dict(
         {
             "id": "img1",
@@ -91,6 +92,7 @@ def test_image_scene_render(
 
     # The render method still needs the prepared assets
     assets = scene.prepare()
+    scene.resolve_duration(None, assets, video_settings)
     clip = scene.render(assets, video_settings)
 
     assert isinstance(clip, VideoClip)
@@ -115,9 +117,12 @@ def test_image_scene_render_with_audio_duration(
         },
         base_dir=base_dir,
     )
-
-    # prepare() now takes no arguments
     assets = scene.prepare()
+
+    # Resolve duration before rendering. The scene uses its own
+    # audio as context.
+    scene.resolve_duration(None, assets, video_settings)
+
     clip = scene.render(assets, video_settings)
 
     assert isinstance(clip, VideoClip)

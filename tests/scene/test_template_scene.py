@@ -29,8 +29,17 @@ def base_dir_with_template(tmp_path: Path, monkeypatch) -> Path:
   duration: 3
   template: "template.svg"
   params:
-    text: "{{ text | default('Default') }}"
+    text: "{{ text }}"
     """)
+
+    # Create a params.yaml to satisfy validation
+    (template_dir / "params.yaml").write_text("""
+parameters:
+  text:
+    type: string
+    description: "Some text to display."
+    """)
+
     # Create the assets the template refers to
     Image.new("RGB", (1, 1)).save(template_dir / "image.png")
     (template_dir / "template.svg").write_text("<svg></svg>")
@@ -60,7 +69,13 @@ def test_template_is_loaded_as_single_scene(base_dir_with_template: Path):
             "output_file": "a.mp4",
         },
         "scenes": [
-            {"type": "template", "id": "my_component", "name": "multi_scene"}
+            {
+                "type": "template",
+                "id": "my_component",
+                "name": "multi_scene",
+                # Provide a value for the 'text' parameter
+                "with": {"text": "test"},
+            }
         ],
     }
     spec = VideoSpec.from_dict(spec_dict, base_dir_with_template)
@@ -86,7 +101,12 @@ def test_template_scene_internally_loads_spec(base_dir_with_template: Path):
             "output_file": "a.mp4",
         },
         "scenes": [
-            {"type": "template", "id": "comp_1", "name": "multi_scene"}
+            {
+                "type": "template",
+                "id": "comp_1",
+                "name": "multi_scene",
+                "with": {"text": "test"},
+            }
         ],
     }
     spec = VideoSpec.from_dict(spec_dict, base_dir_with_template)
@@ -118,7 +138,12 @@ def test_internal_asset_path_is_relative_to_template(
             "output_file": "a.mp4",
         },
         "scenes": [
-            {"type": "template", "id": "comp_1", "name": "multi_scene"}
+            {
+                "type": "template",
+                "id": "comp_1",
+                "name": "multi_scene",
+                "with": {"text": "test"},
+            }
         ],
     }
     spec = VideoSpec.from_dict(spec_dict, base_dir_with_template)
@@ -159,7 +184,6 @@ def test_jinja_rendering_with_params(base_dir_with_template: Path):
     template_scene = spec.scenes[0]
     assert isinstance(template_scene, TemplateScene)
 
-    # Add assertion to satisfy Pylance
     assert template_scene.internal_spec is not None
     internal_scene = template_scene.internal_spec.scenes[1]
     assert isinstance(internal_scene, SvgScene)

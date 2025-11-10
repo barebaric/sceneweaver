@@ -59,6 +59,19 @@ class VideoImagesScene(BaseScene):
         resolved_assets.extend(image_files)
         return resolved_assets
 
+    def _get_fixed_duration(
+        self, assets: List[Path], settings: VideoSettings
+    ) -> Optional[float]:
+        # The intrinsic duration is based on the number of image files found.
+        image_assets = [
+            p
+            for p in assets
+            if p.suffix.lower() in [".png", ".jpg", ".jpeg", ".bmp", ".gif"]
+        ]
+        if not image_assets:
+            return 0.0
+        return len(image_assets) / self.fps
+
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
@@ -75,13 +88,12 @@ class VideoImagesScene(BaseScene):
         base_clip = ImageSequenceClip(
             [str(p) for p in image_assets], fps=self.fps
         )
-        visual_duration = base_clip.duration
-
         annotated_clip = self._apply_annotations_to_clip(base_clip, settings)
         clip_with_audio = self._apply_audio_to_clip(annotated_clip, assets)
 
         # Enforce the scene's duration AFTER audio is attached.
-        return clip_with_audio.with_duration(visual_duration)
+        assert self._calculated_duration is not None
+        return clip_with_audio.with_duration(self._calculated_duration)
 
     @classmethod
     def get_template(cls) -> Dict[str, Any]:

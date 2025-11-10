@@ -1,6 +1,6 @@
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, List, Optional, cast
 from moviepy import (
     VideoClip,
     VideoFileClip,
@@ -32,10 +32,9 @@ class VideoGenerator:
 
         self.settings: VideoSettings = self.spec.settings
 
-        # Assert that settings are valid, informing the type checker
         assert self.settings.width is not None
         assert self.settings.height is not None
-        self.size: Tuple[int, int] = (
+        self.size = (
             self.settings.width,
             self.settings.height,
         )
@@ -66,13 +65,15 @@ class VideoGenerator:
         use_cache = scene.cache is not None and not self.force
         assets = scene.prepare()
 
-        composite_id = f"{self.spec_path}::{scene.id}"
+        # Resolve the final duration for the scene before doing anything else.
+        scene.resolve_duration(None, assets, self.settings)
 
-        # Determine the correct dictionary to use for hashing
-        if isinstance(scene, TemplateScene):
-            scene_dict_for_hash = scene.to_dict()
-        else:
-            scene_dict_for_hash = raw_scene_from_spec
+        composite_id = f"{self.spec_path}::{scene.id}"
+        scene_dict_for_hash = (
+            scene.to_dict()
+            if isinstance(scene, TemplateScene)
+            else raw_scene_from_spec
+        )
 
         if use_cache:
             cached_path = self.cache.get(
@@ -86,15 +87,14 @@ class VideoGenerator:
         else:
             print("Generating scene...")
 
-        # 1. Render the base visual clip for ANY scene type.
+        # Render the base visual clip for ANY scene type.
         base_clip = scene.render(assets, self.settings)
 
         if not base_clip:
             print(f"Skipping scene {index + 1} as no clip was generated.")
             return None
 
-        # 2. Apply standard pre-cache overrides (audio, annotations).
-        #    This now happens uniformly for ALL scene types.
+        # Apply standard overrides (annotations, audio) uniformly.
         clip_with_overrides = scene._apply_annotations_to_clip(
             base_clip, self.settings
         )
@@ -102,7 +102,7 @@ class VideoGenerator:
             clip_with_overrides, assets
         )
 
-        # 3. Apply final adjustments before caching.
+        # Apply final adjustments before caching.
         final_clip = clip_with_overrides
         if final_clip.size != list(self.size):
             final_clip = final_clip.with_effects([Resize(height=self.size[1])])

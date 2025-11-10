@@ -44,6 +44,16 @@ class VideoScene(BaseScene):
         resolved_assets.append(absolute_path)
         return resolved_assets
 
+    def _get_fixed_duration(
+        self, assets: List[Path], settings: VideoSettings
+    ) -> Optional[float]:
+        # A video's intrinsic asset duration is its fixed duration.
+        video_path = self.find_asset(self.file, assets)
+        if video_path:
+            with VideoFileClip(str(video_path)) as clip:
+                return clip.duration
+        return None
+
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
@@ -54,13 +64,13 @@ class VideoScene(BaseScene):
         # Note: VideoFileClip might already have audio. The new audio tracks
         # from the spec will REPLACE the original audio.
         base_clip = VideoFileClip(str(video_path))
-        visual_duration = base_clip.duration
 
         annotated_clip = self._apply_annotations_to_clip(base_clip, settings)
         clip_with_audio = self._apply_audio_to_clip(annotated_clip, assets)
 
         # Enforce the original video's duration AFTER audio is attached.
-        return clip_with_audio.with_duration(visual_duration)
+        assert self._calculated_duration is not None
+        return clip_with_audio.with_duration(self._calculated_duration)
 
     @classmethod
     def get_template(cls) -> Dict[str, Any]:

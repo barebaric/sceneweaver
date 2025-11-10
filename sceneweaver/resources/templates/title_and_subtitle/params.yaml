@@ -1,0 +1,31 @@
+parameters:
+  title:
+    type: string
+    description: "The main title text to display"
+  title_color:
+    type: string
+    description: "Color for the title"
+    optional: true
+    default: "white"
+  title_font:
+    type: string
+    description: "Font for the title"
+    optional: true
+  subtitle:
+    type: string
+    description: "The subtitle text"
+    optional: true
+  subtitle_color:
+    type: string
+    description: "Color for the subtitle"
+    optional: true
+    default: "#cccccc"
+  subtitle_font:
+    type: string
+    description: "Font for the subtitle"
+    optional: true
+  duration:
+    type: number
+    description: "Duration in seconds for the scene"
+    optional: true
+    default: "auto"

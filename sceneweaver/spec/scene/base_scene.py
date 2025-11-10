@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, List, Type
+from typing import Dict, Any, Optional, List, Type, Union
 from pathlib import Path
 import numpy as np
 from moviepy import (
@@ -38,6 +38,9 @@ class BaseScene:
         self.effects = effects or []
         self.transition = transition
         self.audio = audio or []
+        self.duration: Optional[Union[float, str]] = None
+        self.frames: Optional[int] = None
+        self._calculated_duration: Optional[float] = None
 
     def validate(self):
         """Validates the scene's configuration."""
@@ -55,10 +58,7 @@ class BaseScene:
         return None
 
     def prepare(self) -> List[Path]:
-        """
-        Prepares the scene by resolving all necessary asset paths.
-        This method should be overridden by subclasses that use external files.
-        """
+        """Prepares the scene by resolving all necessary asset paths."""
         resolved_assets = []
         if self.audio:
             for track in self.audio:
@@ -93,6 +93,74 @@ class BaseScene:
 
         return max_end_time if max_end_time > 0 else None
 
+    def _get_fixed_duration(
+        self, assets: List[Path], settings: VideoSettings
+    ) -> Optional[float]:
+        """
+        Determines a scene's duration if it's explicitly fixed.
+        This base implementation handles frames and numeric duration.
+        Subclasses with intrinsic durations (like VideoScene) must override it.
+        """
+        if self.frames is not None:
+            assert settings.fps is not None
+            return self.frames / settings.fps
+        if isinstance(self.duration, (int, float)):
+            return float(self.duration)
+        if isinstance(self.duration, str):
+            try:
+                return float(self.duration)
+            except ValueError:
+                return None  # It's a declarative string like "auto" or "%"
+        return None
+
+    def resolve_duration(
+        self,
+        context_duration: Optional[float],
+        assets: List[Path],
+        settings: VideoSettings,
+    ):
+        """
+        Calculates and sets the final _calculated_duration for the scene.
+        This is the single entry point for all duration logic.
+        """
+        if self._calculated_duration is not None:
+            return  # Already resolved
+
+        # Case 1: The scene has its own fixed duration.
+        fixed_duration = self._get_fixed_duration(assets, settings)
+        if fixed_duration is not None:
+            self._calculated_duration = fixed_duration
+            return
+
+        # Case 2: The scene has a relative duration ('auto', '%', or None).
+        # It needs a context to resolve against.
+        effective_context = context_duration
+        if effective_context is None:
+            # A top-level scene uses its own audio as its context.
+            effective_context = self._get_duration_from_audio(assets)
+
+        if effective_context is None:
+            raise ValidationError(
+                f"Scene '{self.id}' has a relative duration but no context "
+                "was available. Add an 'audio' track to this scene or place "
+                "it in a template that provides a duration."
+            )
+
+        # Resolve relative duration against the context.
+        if self.duration is None or self.duration == "auto":
+            self._calculated_duration = effective_context
+        elif isinstance(self.duration, str) and self.duration.endswith("%"):
+            try:
+                percent = float(self.duration[:-1])
+                self._calculated_duration = effective_context * (percent / 100)
+            except ValueError:
+                raise ValidationError(f"Invalid % value: '{self.duration}'")
+        else:
+            # This case should ideally not be hit if parsing is correct
+            raise ValidationError(
+                f"Unhandled duration format: {self.duration}"
+            )
+
     def _apply_annotations_to_clip(
         self, base_clip: VideoClip, settings: VideoSettings
     ) -> VideoClip:
@@ -124,10 +192,8 @@ class BaseScene:
         for track in self.audio:
             audio_path = self.find_asset(track.file, assets)
             if not audio_path:
-                # This should ideally not happen if prepare() is correct
                 raise FileNotFoundError(
-                    f"Could not find prepared asset for audio file: "
-                    f"{track.file}"
+                    f"Could not find asset for audio file: {track.file}"
                 )
 
             audio_clip = AudioFileClip(str(audio_path))
@@ -149,21 +215,15 @@ class BaseScene:
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
-        """
-        Renders the scene into a MoviePy VideoClip.
-        This method must be implemented by all concrete subclasses.
-        """
+        """Renders the scene into a MoviePy VideoClip."""
         raise NotImplementedError(
-            f"The render method for scene type '{self.type}' is "
-            "not implemented."
+            f"Render method for scene type '{self.type}' is not implemented."
         )
 
     @classmethod
     def get_template(cls) -> Dict[str, Any]:
         """Returns a dictionary with default values for a new scene."""
-        raise NotImplementedError(
-            "The get_template method must be implemented by scene subclasses."
-        )
+        raise NotImplementedError("get_template must be implemented.")
 
     @classmethod
     def _get_scene_types(cls) -> Dict[str, Type["BaseScene"]]:

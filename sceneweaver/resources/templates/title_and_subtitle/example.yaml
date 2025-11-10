@@ -1,0 +1,8 @@
+scenes:
+  - type: template
+    name: title_and_subtitle
+    id: my_title_and_subtitle
+    with:
+      title: 'Main Title'
+      subtitle: 'This is a subtitle example'
+      duration: 3

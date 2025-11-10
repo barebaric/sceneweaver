@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from pathlib import Path
 import numpy as np
 from moviepy import ImageClip, CompositeVideoClip, VideoClip, ColorClip
@@ -19,7 +19,7 @@ class ImageScene(BaseScene):
         self,
         base_dir: Path,
         image: Optional[str],
-        duration: Optional[float] = None,
+        duration: Optional[Union[float, str]] = None,
         frames: Optional[int] = None,
         annotations: Optional[List[BaseAnnotation]] = None,
         zoom: Optional[ZoomSpec] = None,
@@ -53,14 +53,9 @@ class ImageScene(BaseScene):
         self.width = width
         self.height = height
         self.bg_color = ImageColor.getrgb(bg_color)
-        self._calculated_duration: Optional[float] = None
 
     def validate(self):
         super().validate()
-        if self.duration is None and self.frames is None and not self.audio:
-            raise ValidationError(
-                f"Scene '{self.id}' requires 'duration', 'frames', or 'audio'."
-            )
         if self.image is None:
             raise ValidationError(
                 f"Scene '{self.id}' is missing required field: 'image'."
@@ -94,10 +89,7 @@ class ImageScene(BaseScene):
     def _create_background_with_image(
         self, content_clip: VideoClip, settings: VideoSettings
     ) -> VideoClip:
-        """
-        Takes a content clip and places it on a canvas according to the
-        scene's stretch, size, and position settings.
-        """
+        """Places a content clip on a canvas according to scene settings."""
         assert settings.width and settings.height
         canvas_size = (settings.width, settings.height)
 
@@ -135,12 +127,8 @@ class ImageScene(BaseScene):
         self, img_clip: ImageClip, settings: VideoSettings
     ) -> VideoClip:
         """Renders the scene with a zoom effect."""
-        assert self.zoom is not None
+        assert self.zoom and self._calculated_duration
         zoom_spec = self.zoom
-        assert (
-            self._calculated_duration is not None
-            and self._calculated_duration > 0
-        )
 
         def resize_func(t):
             x1_start, y1_start, w_start, h_start = zoom_spec.start_rect
@@ -160,8 +148,6 @@ class ImageScene(BaseScene):
             width=lambda t: resize_func(t)[2],
             height=lambda t: resize_func(t)[3],
         )
-        assert isinstance(zoomed_img_clip, VideoClip)
-
         clips_to_composite = [zoomed_img_clip]
 
         # If annotations exist, apply the *same* crop/zoom and add them
@@ -201,24 +187,13 @@ class ImageScene(BaseScene):
     def render(
         self, assets: List[Path], settings: VideoSettings
     ) -> Optional[VideoClip]:
+        assert self._calculated_duration is not None, (
+            "Duration must be resolved."
+        )
         assert self.image is not None
         image_path = self.find_asset(self.image, assets)
         if not image_path:
             return None
-
-        # Determine duration hierarchy: frames > duration > audio
-        if self.frames is not None:
-            assert settings.fps is not None
-            self._calculated_duration = self.frames / settings.fps
-        elif self.duration is not None:
-            self._calculated_duration = self.duration
-        else:
-            self._calculated_duration = self._get_duration_from_audio(assets)
-
-        if self._calculated_duration is None:
-            raise ValidationError(
-                f"Could not determine duration for scene '{self.id}'."
-            )
 
         img_clip = ImageClip(str(image_path)).with_duration(
             self._calculated_duration
@@ -277,13 +252,9 @@ class ImageScene(BaseScene):
             if transition_data
             else None
         )
-
-        duration_val = data.get("duration")
-        duration = float(duration_val) if duration_val is not None else None
-
         instance = cls(
             base_dir=base_dir,
-            duration=duration,
+            duration=data.get("duration"),
             frames=data.get("frames"),
             image=data.get("image"),
             annotations=annotations,

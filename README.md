@@ -7,15 +7,16 @@ version-controllable video production.
 For larger projects it supports modular composition and caching, and you can include other
 videos as well.
 
-| Feature                                | Description                                                                |
-| :------------------------------------- | :------------------------------------------------------------------------- |
-| **Declarative YAML Configuration**     | Define videos in a version-controllable YAML specification.                |
-| **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.). |
-| **Dynamic SVG Templates**              | Generate complex, animated graphics using templated SVG files.             |
-| **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.  |
-| **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.    |
-| **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                  |
-| **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                    |
+| Feature                                   |                                                                            |
+| :---------------------------------------- | -------------------------------------------------------------------------- |
+| ✅ **Re-usable Templates**                | Check the [template library](docs/templates.md) for a gallery.             |
+| ✅ **Animated SVGs**                      | Generate complex, animated graphics using templated SVG files.             |
+| ✅ **Repeatable Production**              | Define videos in a version-controllable YAML specification.                |
+| ✅ **Scene-Based Composition**            | Compose videos from modular scenes (images, video clips, templates, etc.). |
+| ✅ **Intelligent Caching**                | Automatically caches rendered scenes, only re-rendering what has changed.  |
+| ✅ **Interactive CLI Tool**               | Interactive CLI for creating specs, adding scenes, and recording audio.    |
+| ✅ **Audio Integration & Recording**      | Add audio tracks to scenes; includes a built-in recorder.                  |
+| ✅ **Annotations, Transitions & Effects** | Apply text annotations, transitions, and video effects.                    |
 
 ## Installation
 

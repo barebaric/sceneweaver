@@ -65,6 +65,10 @@ scenes:
 {parameters_description}
 """
 
+TABLE_HEADER_TEMPLATE = """| Template | Preview |
+|----------|---------|
+"""
+
 
 def get_builtin_templates() -> List[str]:
     """Get list of all built-in template names."""
@@ -357,42 +361,30 @@ def generate_readme_file(
 def create_templates_overview(
     template_data: List[Dict[str, Any]], output_path: Path
 ):
-    """Create the overview markdown file with all templates."""
-    template_sections = []
-
+    """Create the overview markdown file with all templates in a tabular
+    layout."""
+    # Create table rows
+    table_rows = []
     for template_info in template_data:
         template_name = template_info["name"]
-        description = template_info.get("description", "")
         image_path = template_info["image_path"]
-        parameters_str = template_info.get("parameters", "")
-
-        usage_example = TEMPLATE_USAGE_TEMPLATE.format(
-            template_name=template_name, parameters=parameters_str
+        # Make template name a link to the documentation with correct path
+        template_link = (
+            f"[{template_name}](../sceneweaver/resources/templates/"
+            f"{template_name}/README.md)"
         )
 
-        doc_link = f"[View detailed documentation]({template_name}/README.md)"
+        # Create table row with smaller image (300px width)
+        row = (
+            f'| {template_link} | <img src="{image_path}" width="300" '
+            f'alt="{template_name} preview" /> |'
+        )
+        table_rows.append(row)
 
-        template_section = f"""### {template_name}
+    # Combine all content
+    table_content = TABLE_HEADER_TEMPLATE + "\n".join(table_rows)
 
-{description}
-
-![{template_name}]({image_path})
-
-**Usage Example:**
-
-```yaml
-{usage_example}
-```
-
-{doc_link}
-
----
-"""
-        template_sections.append(template_section)
-
-    content = OVERVIEW_TEMPLATE.format(
-        template_content="\n".join(template_sections)
-    )
+    content = OVERVIEW_TEMPLATE.format(template_content=table_content)
 
     with open(output_path, "w") as f:
         f.write(content)

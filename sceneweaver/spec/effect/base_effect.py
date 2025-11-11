@@ -22,11 +22,23 @@ class BaseEffect:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "BaseEffect":
         """Factory method to create specific effect instances."""
+        from .accel_decel_effect import AccelDecelEffect
         from .fade_effect import FadeEffect
+        from .scroll_effect import ScrollEffect
+        from .slide_effect import SlideEffect
+        from .zoom_effect import ZoomEffect
 
         effect_type = data.get("type")
-        if effect_type in ["fade-in", "fade-out"]:
+        if effect_type == "accel-decel":
+            return AccelDecelEffect.from_dict(data)
+        elif effect_type in ["fade-in", "fade-out"]:
             return FadeEffect.from_dict(data)
+        elif effect_type == "scroll":
+            return ScrollEffect.from_dict(data)
+        elif effect_type in ["slide-in", "slide-out"]:
+            return SlideEffect.from_dict(data)
+        elif effect_type == "zoom":
+            return ZoomEffect.from_dict(data)
         raise ValueError(f"Unknown effect type: {effect_type}")
 
     @classmethod

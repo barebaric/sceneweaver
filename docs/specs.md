@@ -1,7 +1,7 @@
 # SceneWeaver Specification File (`spec.yaml`)
 
-The `spec.yaml` file is the blueprint for your video. It's a declarative file that defines
-the global settings and the sequence of scenes that make up the final output.
+The `spec.yaml` file is the blueprint for your video. It's a declarative file that
+defines the global settings and the sequence of scenes that make up the final output.
 
 This document details the structure and all available options for the specification file.
 
@@ -12,6 +12,7 @@ This document details the structure and all available options for the specificat
     - [Using `scene_defaults`](#using-scene_defaults)
 3.  [The `scenes` Block](#the-scenes-block)
 4.  [Common Scene Attributes](#common-scene-attributes)
+    - [Available Effects](#available-effects)
 5.  [Scene Types](#scene-types)
     - [Image Scene](#image-scene)
     - [Video Scene](#video-scene)
@@ -56,7 +57,9 @@ This block defines the global configuration for your video project.
 
 ### Using `scene_defaults`
 
-The `scene_defaults` key is a powerful feature for keeping your specifications DRY (Don't Repeat Yourself). Any valid scene attribute can be placed here, and it will be applied to every scene unless that scene explicitly overrides it.
+The `scene_defaults` key is a powerful feature for keeping your specifications DRY
+(Don't Repeat Yourself). Any valid scene attribute can be placed here, and it will be
+applied to every scene unless that scene explicitly overrides it.
 
 This is especially useful for setting a common transition or cache policy.
 
@@ -117,16 +120,88 @@ This is a list of scene objects. SceneWeaver processes them sequentially to buil
 
 These attributes can be applied to any scene type.
 
-| Key          | Type              | Description                                                                                                                                                                |
-| ------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | string            | **Required.** A unique identifier for the scene. Used for caching and targeting scenes via the CLI.                                                                        |
-| `type`       | string            | **Required.** The type of the scene. Must be one of: `image`, `video`, `video-images`, `svg`, or `template`.                                                               |
-| `duration`   | number            | The duration of the scene in seconds. Not required if `frames` is set or if the scene's duration is determined by its audio.                                               |
-| `frames`     | integer           | The duration of the scene in frames. `duration` is calculated as `frames / settings.fps`.                                                                                  |
-| `audio`      | list of objects   | A list of audio tracks to play during the scene. Each object can have `file` (path) and `shift` (in seconds, can be negative).                                             |
-| `transition` | object            | A transition to play _after_ this scene ends and before the next one begins. Specify `type` and `duration`.                                                                |
-| `effects`    | list of objects   | A list of effects to apply to this scene, like `fade-in` or `fade-out`. Specify `type` and `duration`.                                                                     |
-| `cache`      | boolean or object | Caching policy for this scene. `true` enables caching with default settings. An object with `max-size` (e.g., `500MB`) provides fine-grained control. `false` disables it. |
+| Key          | Type              | Description                                                                                                  |
+| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `id`         | string            | **Required.** A unique identifier for the scene. Used for caching and targeting scenes via the CLI.          |
+| `type`       | string            | **Required.** The type of the scene. Must be one of: `image`, `video`, `video-images`, `svg`, or `template`. |
+| `duration`   | number            | The duration of the scene in seconds. Not required if `frames` is set or if the                              |
+|              |                   | scene's duration is determined by its audio.                                                                 |
+| `frames`     | integer           | The duration of the scene in frames. `duration` is calculated as `frames / settings.fps`.                    |
+| `audio`      | list of objects   | A list of audio tracks to play during the scene. Each object can have `file` (path)                          |
+|              |                   | and `shift` (in seconds, can be negative).                                                                   |
+| `transition` | object            | A transition to play _after_ this scene ends and before the next one begins.                                 |
+|              |                   | Specify `type` and `duration`.                                                                               |
+| `effects`    | list of objects   | A list of effects to apply to this scene. See "Available Effects" below.                                     |
+| `cache`      | boolean or object | Caching policy for this scene. `true` enables caching with default settings. An                              |
+|              |                   | object with `max-size` (e.g., `500MB`) provides fine-grained control. `false`                                |
+|              |                   | disables it.                                                                                                 |
+
+### Available Effects
+
+The `effects` list accepts objects with a `type` and other parameters.
+
+- **`fade-in` / `fade-out`**: Fades the scene from/to black.
+
+  - `duration` (number, **required**): Duration of the fade in seconds.
+
+  ```yaml
+  effects:
+    - type: fade-in
+      duration: 1.5
+  ```
+
+- **`slide-in` / `slide-out`**: Slides the scene into or out of the frame.
+
+  - `duration` (number, **required**): Duration of the slide in seconds.
+  - `side` (string, optional): Which side to slide from/to. One of `left`, `right`, `top`, `bottom`. Defaults to `left`.
+
+  ```yaml
+  effects:
+    - type: slide-in
+      duration: 0.5
+      side: top
+  ```
+
+- **`accel-decel`**: Changes the speed of the clip to fit a new duration, with easing at the start and end.
+
+  - `new_duration` (number, **required**): The target duration for the clip in seconds.
+  - `abruptness` (number, optional): How abruptly the speed changes. `1.0` is linear. `> 1` is more abrupt. Defaults to `1.0`.
+  - `soonness` (number, optional): When the speed change happens. `1.0` is centered. `> 1` is sooner. Defaults to `1.0`.
+
+  ```yaml
+  effects:
+    # Make a 5s clip play in 3s with easing
+    - type: accel-decel
+      new_duration: 3
+      abruptness: 1.5
+  ```
+
+- **`scroll`**: Scrolls the content of the clip. Useful for taller images.
+
+  - `duration` (number, optional): Sets a new duration for the clip before scrolling.
+  - `w`, `h` (integer, optional): The width and height of the "window" to scroll. Defaults to clip's dimensions.
+  - `x_speed`, `y_speed` (integer, optional): Speed of scroll in pixels per second.
+  - `x_start`, `y_start` (integer, optional): Starting position of the scroll window.
+
+  ```yaml
+  effects:
+    # Slowly scroll down a tall image over its full duration
+    - type: scroll
+      y_speed: -50 # pixels per second upwards
+  ```
+
+- **`zoom`**: Creates a "Ken Burns" style zoom and pan effect.
+  - `duration` (number, optional): Duration of the zoom. Defaults to the clip's full duration.
+  - `start_rect` (list, **required**): The starting rectangle `[x, y, width, height]` in percent of the frame.
+  - `end_rect` (list, **required**): The ending rectangle `[x, y, width, height]` in percent of the frame.
+  ```yaml
+  effects:
+    # Zoom from full frame into the top-left quadrant over 5 seconds
+    - type: zoom
+      duration: 5
+      start_rect: [0, 0, 100, 100]
+      end_rect: [0, 0, 50, 50]
+  ```
 
 ---
 
@@ -134,19 +209,23 @@ These attributes can be applied to any scene type.
 
 ### Image Scene
 
-Displays a static image. Its duration must be specified with `duration`, `frames`, or `audio`.
+Displays a static image. Its duration must be specified with `duration`, `frames`, or
+`audio`.
 
 **Specific Attributes:**
 
-| Key           | Type            | Description                                                                                                |
-| ------------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
-| `image`       | string          | **Required.** Path to the image file.                                                                      |
-| `stretch`     | boolean         | If `true` (default), the image is stretched to fill the screen. If `false`, its aspect ratio is preserved. |
-| `position`    | any             | How to position the image when `stretch: false`. Can be `"center"`, `("left", "top")`, or `(x, y)` pixels. |
-| `width`       | number          | When `stretch: false`, resizes the image to a percentage of the screen width (e.g., `80`).                 |
-| `height`      | number          | When `stretch: false`, resizes the image to a percentage of the screen height.                             |
-| `bg_color`    | string          | Background color to show behind a non-stretched image. Defaults to `black`.                                |
-| `annotations` | list of objects | A list of text or highlight overlays to draw on top of the image.                                          |
+| Key           | Type            | Description                                                                     |
+| ------------- | --------------- | ------------------------------------------------------------------------------- |
+| `image`       | string          | **Required.** Path to the image file.                                           |
+| `stretch`     | boolean         | If `true` (default), the image is stretched to fill the screen. If `false`, its |
+|               |                 | aspect ratio is preserved.                                                      |
+| `position`    | any             | How to position the image when `stretch: false`. Can be `"center"`, `("left",   |
+|               |                 | "top")`, or `(x, y)` pixels.                                                    |
+| `width`       | number          | When `stretch: false`, resizes the image to a percentage of the screen width    |
+|               |                 | (e.g., `80`).                                                                   |
+| `height`      | number          | When `stretch: false`, resizes the image to a percentage of the screen height.  |
+| `bg_color`    | string          | Background color to show behind a non-stretched image. Defaults to `black`.     |
+| `annotations` | list of objects | A list of text or highlight overlays to draw on top of the image.               |
 
 **Example:**
 
@@ -171,10 +250,11 @@ Plays a video file. Its duration is determined by the length of the video file i
 
 **Specific Attributes:**
 
-| Key     | Type   | Description                                                                                                         |
-| ------- | ------ | ------------------------------------------------------------------------------------------------------------------- |
-| `file`  | string | **Required.** Path to the video file.                                                                               |
-| `audio` | list   | If an `audio` track is specified on a video scene, it will **completely replace** the video's original audio track. |
+| Key     | Type   | Description                                                                           |
+| ------- | ------ | ------------------------------------------------------------------------------------- |
+| `file`  | string | **Required.** Path to the video file.                                                 |
+| `audio` | list   | If an `audio` track is specified on a video scene, it will **completely replace** the |
+|         |        | video's original audio track.                                                         |
 
 **Example:**
 
@@ -193,10 +273,11 @@ Creates a video from a sequence of image files (e.g., frames of a screen recordi
 
 **Specific Attributes:**
 
-| Key    | Type    | Description                                                                                                         |
-| ------ | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `file` | string  | **Required.** A glob pattern that matches your image sequence, e.g., `"frames/*.png"`. Images are sorted naturally. |
-| `fps`  | integer | **Required.** The frame rate at which to play the image sequence.                                                   |
+| Key    | Type    | Description                                                                            |
+| ------ | ------- | -------------------------------------------------------------------------------------- |
+| `file` | string  | **Required.** A glob pattern that matches your image sequence, e.g., `"frames/*.png"`. |
+|        |         | Images are sorted naturally.                                                           |
+| `fps`  | integer | **Required.** The frame rate at which to play the image sequence.                      |
 
 **Example:**
 
@@ -213,11 +294,13 @@ Renders an animated SVG file. The SVG file can contain Jinja2 template variables
 
 **Specific Attributes:**
 
-| Key            | Type   | Description                                                                                                                  |
-| -------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| `template`     | string | **Required.** Path to the `.svg` template file.                                                                              |
-| `params`       | object | An object of key-value pairs that are passed into the SVG file as Jinja2 variables, allowing for dynamic, animated graphics. |
-| `composite_on` | string | The background color to render the (potentially transparent) SVG on top of. Defaults to `black`.                             |
+| Key            | Type   | Description                                                              |
+| -------------- | ------ | ------------------------------------------------------------------------ |
+| `template`     | string | **Required.** Path to the `.svg` template file.                          |
+| `params`       | object | An object of key-value pairs that are passed into the SVG file as Jinja2 |
+|                |        | variables, allowing for dynamic, animated graphics.                      |
+| `composite_on` | string | The background color to render the (potentially transparent) SVG on      |
+|                |        | top of. Defaults to `black`.                                             |
 
 **Example:**
 
@@ -233,14 +316,16 @@ Renders an animated SVG file. The SVG file can contain Jinja2 template variables
 
 ### Template Scene
 
-Uses a pre-defined template, which is a reusable collection of one or more scenes. See the [Template Documentation](templates.md) for more details.
+Uses a pre-defined template, which is a reusable collection of one or more scenes. See the
+[Template Documentation](templates.md) for more details.
 
 **Specific Attributes:**
 
-| Key    | Type   | Description                                                                                                  |
-| ------ | ------ | ------------------------------------------------------------------------------------------------------------ |
-| `name` | string | **Required.** The name of the template to use (e.g., `title_and_subtitle`).                                  |
-| `with` | object | An object of key-value pairs that are passed to the template as parameters, filling in its Jinja2 variables. |
+| Key    | Type   | Description                                                                            |
+| ------ | ------ | -------------------------------------------------------------------------------------- |
+| `name` | string | **Required.** The name of the template to use (e.g., `title_and_subtitle`).            |
+| `with` | object | An object of key-value pairs that are passed to the template as parameters, filling in |
+|        |        | its Jinja2 variables.                                                                  |
 
 **Example:**
 

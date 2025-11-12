@@ -127,7 +127,6 @@ class TemplateScene(BaseScene):
         # 'font' is from global settings; others are fundamental scene
         # properties.
         implicit_params = self._get_implicit_template_params()
-        implicit_params.add("font")
         expected_params = defined_params.union(implicit_params)
 
         # Load template.yaml to find used parameters
@@ -172,17 +171,10 @@ class TemplateScene(BaseScene):
         """Loads and parses the template YAML into an internal VideoSpec."""
         from ..video_spec import VideoSpec
 
-        template_dir = template_manager.resolve(self.name)
-
         # Validate that params.yaml matches template.yaml
+        template_dir = template_manager.resolve(self.name)
         self._validate_template_params(template_dir)
-
         template_spec_path = template_dir / "template.yaml"
-        if not template_spec_path.is_file():
-            raise ValidationError(
-                f"Template '{self.name}' is missing a 'template.yaml' file."
-            )
-
         template_content = template_spec_path.read_text(encoding="utf-8")
         template = jinja_env.from_string(template_content)
         context = {"font": settings.font, **self.with_params}
@@ -213,7 +205,6 @@ class TemplateScene(BaseScene):
     def prepare(self) -> List[Path]:
         """Prepares assets for the template and all its internal scenes."""
         resolved_assets = super().prepare()
-
         assert self.internal_spec is not None
         for scene in self.internal_spec.scenes:
             resolved_assets.extend(scene.prepare())

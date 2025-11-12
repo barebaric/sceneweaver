@@ -1,0 +1,21 @@
+- type: svg
+  id: foreground_layer
+  duration: "{{ duration }}"
+  template: layout.svg
+
+  # This ensures that if no bg_color is set, the scene is transparent.
+  composite_on: null
+
+  params:
+    font: "{{ font }}"
+    font_size: "{{ font_size | default(90) }}"
+    text_color: "{{ text_color | default('white') }}"
+    gap: "{{ gap | default(3) }}"
+    left_offset_percent: "{{ left_offset_percent | default(0) }}"
+    text_content: "{{ text_content }}"
+    logo_height: "{{ logo_height | default(40) }}"
+    logo_aspect_ratio: "{{ logo_aspect_ratio | default(1.0) }}"
+    bg_color: "{{ bg_color | default(None) }}"
+
+  image_params:
+    logo_path: "{{ logo_path }}"

@@ -11,6 +11,7 @@ This script:
 
 import importlib.resources
 import tempfile
+import os
 from pathlib import Path
 from typing import Dict, Any, List
 import argparse
@@ -94,6 +95,10 @@ def extract_scene_block_from_example(
         example_yaml_str = manager.get_example(template_name)
         example_data = yaml.safe_load(example_yaml_str)
 
+        # Handle case where example is just the scene block list
+        if isinstance(example_data, list) and len(example_data) > 0:
+            return example_data[0]
+
         # Fallback for full spec format
         if isinstance(example_data, dict) and "scenes" in example_data:
             scenes = example_data["scenes"]
@@ -121,7 +126,7 @@ def create_template_screenshot(
     settings = VideoSettings(
         width=1920,
         height=1080,
-        fps=30,
+        fps=5,
         output_file="temp.mp4",
         font="DejaVuSans",
     )
@@ -358,6 +363,44 @@ def create_templates_overview(
         f.write(content)
 
 
+def should_update_template(template_dir: Path, force: bool) -> bool:
+    """
+    Check if a template's assets need to be updated.
+
+    Update is needed if:
+    - The --force flag is used.
+    - The screenshot.png does not exist.
+    - Any file in the template directory is newer than the screenshot.png.
+    """
+    if force:
+        return True
+
+    screenshot_path = template_dir / "screenshot.png"
+
+    if not screenshot_path.is_file():
+        return True  # Screenshot doesn't exist, must generate
+
+    # Get the modification time of the existing screenshot
+    screenshot_mtime = screenshot_path.stat().st_mtime
+
+    # Check all files in the template directory
+    for root, _, files in os.walk(template_dir):
+        for file in files:
+            # Don't compare the screenshot to itself or its README
+            if file in ["screenshot.png", "README.md"]:
+                continue
+
+            file_path = Path(root) / file
+            if file_path.stat().st_mtime > screenshot_mtime:
+                print(
+                    f"  - Change detected: "
+                    f"'{file_path.relative_to(template_dir)}' is newer."
+                )
+                return True  # Found a newer file
+
+    return False  # No newer files found
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate screenshots and documentation for "
@@ -371,6 +414,13 @@ def main():
     )
     parser.add_argument(
         "--templates-dir", "-t", help="Override templates directory"
+    )
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Force regeneration of all screenshots and documentation, "
+        "even if they are up to date.",
     )
     args = parser.parse_args()
 
@@ -394,15 +444,25 @@ def main():
             else:
                 template_dir = template_manager.resolve(template_name)
 
-            # Generate README file first
-            generate_readme_file(template_name, template_dir, template_manager)
+            # Check if we need to update this template's assets
+            if should_update_template(template_dir, args.force):
+                print(f"Updating assets for template: {template_name}")
+                # Generate README file first
+                generate_readme_file(
+                    template_name, template_dir, template_manager
+                )
 
-            # Create screenshot
-            image_path = create_template_screenshot(
-                template_name, template_dir, template_manager
-            )
-            print(f"Screenshot saved to: {image_path}")
+                # Create screenshot
+                image_path = create_template_screenshot(
+                    template_name, template_dir, template_manager
+                )
+                print(f"Screenshot saved to: {image_path}")
+            else:
+                print(
+                    f"Skipping generation for '{template_name}': up to date."
+                )
 
+            # --- Data Collection for Overview (always runs) ---
             # Extract 'with' parameters for overview, if they exist
             scene_block = extract_scene_block_from_example(
                 template_name, template_manager

@@ -1,4 +1,6 @@
 import tempfile
+import base64
+import mimetypes
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, Tuple
 import cairosvg
@@ -20,6 +22,7 @@ class SvgScene(BaseScene):
         base_dir: Path,
         duration: Optional[Union[float, str]] = None,
         params: Optional[Dict[str, Any]] = None,
+        image_params: Optional[Dict[str, Any]] = None,
         id: Optional[str] = None,
         cache: Optional[Dict[str, Any]] = None,
         effects: Optional[List[BaseEffect]] = None,
@@ -41,6 +44,7 @@ class SvgScene(BaseScene):
         self.duration = duration
         self.template = template
         self.params = params or {}
+        self.image_params = image_params or {}
         self.composite_on: Optional[Tuple[int, int, int]] = None
 
         # Allow 'none' string as an alias for null/None for transparency
@@ -74,6 +78,65 @@ class SvgScene(BaseScene):
         resolved_assets.append(template_path)
         return resolved_assets
 
+    def _process_image_params(
+        self, params: Dict[str, Any], image_params: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Resolves file paths in image_params and merges them into the main
+        params dict as Base64-encoded data URIs for embedding in the SVG.
+        """
+        # Start with a copy of the main parameters
+        final_params = params.copy()
+
+        for key, path_str in image_params.items():
+            if not isinstance(path_str, str):
+                # If the resolved Jinja value isn't a string path, just pass
+                # it through to the final context.
+                final_params[key] = path_str
+                continue
+
+            # --- Resolve Path ---
+            # We try two strategies:
+            # 1. Resolve relative to the current working directory (for paths
+            #    passed from the user's spec, e.g., "assets/logo.png").
+            # 2. Fallback to resolving relative to the template's own directory
+            #    (for assets that are part of the template itself).
+            resolved_path = None
+            p = Path(path_str).expanduser()
+
+            p_abs_cwd = p.resolve()
+            if p_abs_cwd.is_file():
+                resolved_path = p_abs_cwd
+            else:
+                p_abs_base = (self.base_dir / p).resolve()
+                if p_abs_base.is_file():
+                    resolved_path = p_abs_base
+
+            if not resolved_path:
+                raise ValidationError(
+                    f"In SvgScene '{self.id}', could not find image file for "
+                    f"parameter '{key}' at path: '{path_str}'. "
+                    f"Checked relative to current directory and "
+                    f"'{self.base_dir}'."
+                )
+
+            # --- Embed as Data URI ---
+            mime_type, _ = mimetypes.guess_type(resolved_path)
+            if not mime_type:
+                mime_type = "application/octet-stream"
+
+            with open(resolved_path, "rb") as f:
+                image_data = f.read()
+
+            base64_data = base64.b64encode(image_data).decode("utf-8")
+            data_uri = f"data:{mime_type};base64,{base64_data}"
+
+            # Add the embedded image to the final parameters dictionary,
+            # making it available to the SVG template.
+            final_params[key] = data_uri
+
+        return final_params
+
     def render(
         self, assets: List[Any], settings: VideoSettings
     ) -> Optional[VideoClip]:
@@ -91,6 +154,12 @@ class SvgScene(BaseScene):
         )
         template = env.get_template(user_template_path.name)
         env.globals.update(min=min, max=max, round=round, abs=abs)
+
+        # Pre-process image parameters to embed them as data URIs. This
+        # becomes the base context for rendering all frames.
+        base_render_context = self._process_image_params(
+            self.params, self.image_params
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir_str:
             temp_dir = Path(temp_dir_str)
@@ -115,7 +184,7 @@ class SvgScene(BaseScene):
                     modified_progress = new_progress
 
                 context = {
-                    **self.params,
+                    **base_render_context,
                     "timestamp": timestamp,
                     "frame": i,
                     "duration": self._calculated_duration,
@@ -193,6 +262,7 @@ class SvgScene(BaseScene):
             template=data["template"],
             base_dir=base_dir,
             params=data.get("params"),
+            image_params=data.get("image_params"),
             id=data.get("id"),
             cache=data.get("cache"),
             effects=effects,

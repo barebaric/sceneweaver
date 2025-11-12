@@ -1,0 +1,48 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- ================================================================= -->
+    <!-- SETUP & CONVERSIONS                                               -->
+    <!-- ================================================================= -->
+    {% set screen_width = 1920 %}
+    {% set screen_height = 1080 %}
+    {% set logo_h_px = screen_height * (logo_height | float / 100) %}
+    {% set logo_w_px = logo_h_px * (logo_aspect_ratio | float) %}
+    {% set gap_px = screen_width * (gap | float / 100) %}
+    {% set offset_px = screen_width * (left_offset_percent | default(0) | float / 100) %}
+
+    <!--
+      DEFINITIVE FIX: CONDITIONAL BACKGROUND LAYER
+      This is the key to solving the color fringe issue. If a 'bg_color'
+      is provided, we render a solid rectangle as the very first layer.
+      All subsequent elements (logo, text) are rendered directly on top
+      of this vector background, resulting in perfect anti-aliasing.
+      If 'bg_color' is not provided, this block is skipped, and the SVG
+      is rendered with a transparent background as intended.
+    -->
+    {% if bg_color %}
+    <rect width="100%" height="100%" fill="{{ bg_color }}" />
+    {% endif %}
+
+    <!-- Main content group -->
+    <g transform="translate({{ offset_px }}, {{ screen_height / 2 }})">
+        <!-- 1. The Logo -->
+        <image
+            x="0"
+            y="{{ -logo_h_px / 2 }}"
+            width="{{ logo_w_px }}"
+            height="{{ logo_h_px }}"
+            xlink:href="{{ logo_path }}"
+            preserveAspectRatio="xMidYMid meet"
+        />
+        <!-- 2. The Text -->
+        <text
+            x="{{ logo_w_px + gap_px }}"
+            y="0"
+            font-family="{{ font | default('DejaVu Sans, Arial, sans-serif') }}"
+            font-size="{{ font_size }}"
+            fill="{{ text_color }}"
+            text-anchor="start"
+            dominant-baseline="middle">
+            {{ text_content }}
+        </text>
+    </g>
+</svg>

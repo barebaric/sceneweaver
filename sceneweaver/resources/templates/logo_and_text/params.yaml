@@ -1,0 +1,50 @@
+# Describes the parameters this template accepts in the `with:` block.
+parameters:
+  # --- NEW ---
+  bg_color:
+    type: string
+    description: "Optional background color for the scene (e.g., '#333333' or 'blue'). If omitted, the background will be transparent."
+    optional: true
+
+  # --- Existing Parameters ---
+  logo_path:
+    type: string
+    description: "Path to the logo image file."
+  text_content:
+    type: string
+    description: "The text to display next to the logo."
+  duration:
+    type: number
+    description: "The duration of the scene in seconds."
+
+  # --- Optional Parameters ---
+  logo_height:
+    type: number
+    description: "The height of the logo as a percentage of the screen height."
+    optional: true
+    default: 40
+  logo_aspect_ratio:
+    type: number
+    description: "The aspect ratio (width / height) of the logo."
+    optional: true
+    default: 1.0
+  gap:
+    type: number
+    description: "The gap between the logo and text as a percentage of screen width."
+    optional: true
+    default: 3
+  font_size:
+    type: number
+    description: "The font size of the text."
+    optional: true
+    default: 90
+  text_color:
+    type: string
+    description: "The color of the text (e.g., '#ffffff' or 'white')."
+    optional: true
+    default: "white"
+  left_offset_percent:
+    type: number
+    description: "Offset from the left edge as a percentage of screen width."
+    optional: true
+    default: 0

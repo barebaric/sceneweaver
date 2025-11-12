@@ -1,0 +1,20 @@
+scenes:
+  - type: template
+    name: logo_and_text
+    id: logo_and_text
+    duration: 1
+    with:
+      logo_path: logo.png
+      text_content: "Your Text Here"
+
+      # The aspect ratio is important for perfect centering.
+      # For a 1920x1080 logo, this would be 1920 / 1080 = 1.777
+      logo_aspect_ratio: 1
+
+      # Optional overrides:
+      logo_height: 30
+      gap: 2
+      font_size: 100
+      bg_color: "#505050"
+      text_color: "#ffffff"
+      left_offset_percent: 20

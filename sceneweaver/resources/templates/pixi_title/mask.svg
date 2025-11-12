@@ -1,0 +1,27 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+    <!--
+    This SVG is used ONLY to generate the mask.
+    It renders solid white text on a black background. MoviePy will convert
+    the white areas into the opaque parts of the mask.
+    -->
+    {% set view_h = 1080 %}
+    {% set line_h = view_h * 0.015 %}
+    {% set space_h = view_h * 0.02 %}
+    {% set box_h = view_h * 0.20 %}
+    {% set total_overlay_h = line_h + space_h + box_h + space_h + line_h %}
+    {% set top_y = (view_h - total_overlay_h) / 2 %}
+    {% set box_y = top_y + line_h + space_h %}
+
+    <!-- Black background is essential for a correct mask -->
+    <rect x="0" y="0" width="1920" height="1080" fill="black"/>
+
+    <!-- White text shapes -->
+    <g>
+        <text x="960" y="{{ box_y + box_h * 0.3 }}" font-family="DejaVu Sans, sans-serif" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
+            {{ line1 }}
+        </text>
+        <text x="960" y="{{ box_y + box_h * 0.7 }}" font-family="DejaVu Sans, sans-serif" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
+            {{ line2 }}
+        </text>
+    </g>
+</svg>

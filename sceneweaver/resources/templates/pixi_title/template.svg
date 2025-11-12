@@ -1,0 +1,33 @@
+{% set view_h = 1080 %}
+{% set view_w = 1920 %}
+
+{% set box_w = view_w * 0.5 %}
+{% set box_h = view_h * 0.20 %}
+
+{% set line_h = view_h * 0.015 %}
+{% set space_h = view_h * 0.02 %}
+{% set total_overlay_h = line_h + space_h + box_h + space_h + line_h %}
+{% set top_y = (view_h - total_overlay_h) / 2 %}
+
+{% set top_line_y = top_y %}
+{% set box_x = view_w/2 - box_w/2 %}
+{% set box_y = top_line_y + line_h + space_h %}
+{% set bottom_line_y = box_y + box_h + space_h %}
+
+<svg width="{{ view_w }}" height="{{ view_h }}" viewBox="0 0 {{ view_w }} {{ view_h }}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!--
+    This SVG template contains ONLY the animated shapes.
+    It has no background and no text. The text knockout effect is handled
+    by a separate 'mask.svg' file and the `composite_mode: mask` feature.
+    -->
+
+    <!-- This group contains the animated shapes -->
+    <g>
+        <!-- Top line -->
+        <rect x="{{ view_w - ((view_w+box_w) * progress) }}" y="{{ top_line_y }}" width="{{ box_w }}" height="{{ line_h }}" fill="{{ accent_color }}"/>
+        <!-- Center box -->
+        <rect x="{{ -box_w + ((view_w+box_w) * progress) }}" y="{{ box_y }}" width="{{ box_w }}" height="{{ box_h }}" fill="{{ accent_color }}"/>
+        <!-- Bottom line -->
+        <rect x="{{ view_w - ((view_w+box_w) * progress) }}" y="{{ bottom_line_y }}" width="{{ box_w }}" height="{{ line_h }}" fill="{{ accent_color }}"/>
+    </g>
+</svg>

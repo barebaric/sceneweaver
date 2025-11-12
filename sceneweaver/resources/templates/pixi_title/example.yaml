@@ -1,0 +1,10 @@
+scenes:
+  - type: template
+    name: pixi_title
+    id: intro_with_image
+    duration: 2.5
+    with:
+      line1: "LINE ONE"
+      line2: "LINE TWO"
+      background_color: "#00003a"
+      accent_color: "#e74c3c" # A nice red

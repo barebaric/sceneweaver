@@ -1,0 +1,29 @@
+parameters:
+  line1:
+    type: string
+    description: "First Line"
+    optional: false
+  line2:
+    type: string
+    description: "Second Line"
+    optional: false
+  background_image:
+    type: string
+    description: "Optional path to a background image."
+    optional: true
+    default: null
+  duration:
+    type: number
+    description: "The duration of the scene in seconds."
+    optional: true
+    default: 5
+  accent_color:
+    type: string
+    description: "The color of the animated overlay shapes."
+    optional: true
+    default: "#3498db"
+  background_color:
+    type: string
+    description: "The background color if no image is provided."
+    optional: true
+    default: "#000000"

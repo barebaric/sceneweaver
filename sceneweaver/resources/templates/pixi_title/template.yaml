@@ -1,0 +1,43 @@
+- type: composite
+  id: "root_composite"
+  duration: "{{ duration | default(5) }}"
+  scenes:
+    # --- LAYER 1 (Bottom): The Background ---
+    # This is the bottom-most layer.
+    {% if background_image and background_image != 'None' %}
+    - type: image
+      id: "background_layer"
+      image: "{{ background_image }}"
+    {% else %}
+    - type: color
+      id: "background_layer"
+      color: "{{ background_color | default('#000000') }}"
+    {% endif %}
+
+    # --- LAYER 2 (Top): The Knockout Effect Group ---
+    - type: composite
+      id: "knockout_effect_group"
+      scenes:
+        # SUBLAYER 2a: The animated shapes to be masked.
+        - type: svg
+          id: "overlay_layer"
+          template: template.svg
+          composite_on: null # Transparent background
+          params:
+            accent_color: "{{ accent_color | default('#efefef') }}"
+          effects:
+            - type: accel-decel
+              duration: "{{ duration | default(5) }}"
+              abruptness: -20.0
+              soonness: 5
+              min_speed: 0.2
+
+        # SUBLAYER 2b: The mask that punches the hole.
+        - type: svg
+          id: "mask_layer"
+          template: mask.svg
+          composite_on: "black" # Render on black for a reliable mask
+          params:
+            line1: "{{ line1 }}"
+            line2: "{{ line2 }}"
+          composite_mode: exclude

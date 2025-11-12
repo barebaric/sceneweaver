@@ -17,6 +17,7 @@ scenes:
           duration: 2 
         - text: 'Third slide'
           duration: 2 
+
 ```
 
 ## Preview

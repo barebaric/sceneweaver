@@ -10,8 +10,9 @@ scenes:
     name: simple_title
     id: my_simple_title
     with:
-      title: 'Example Title'
+      title: Example Title
       duration: 3
+
 ```
 
 ## Preview

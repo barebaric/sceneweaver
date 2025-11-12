@@ -86,32 +86,24 @@ def get_builtin_templates() -> List[str]:
     return sorted(template_names)
 
 
-def extract_yaml_from_example(
+def extract_scene_block_from_example(
     template_name: str, manager: TemplateManager
 ) -> Dict[str, Any]:
-    """Extract YAML parameters from a template's example.yaml file."""
+    """Extract the full scene block from a template's example.yaml file."""
     try:
         example_yaml_str = manager.get_example(template_name)
         example_data = yaml.safe_load(example_yaml_str)
-
-        # The example is expected to be a list of scenes
-        if isinstance(example_data, list) and len(example_data) > 0:
-            scene = example_data[0]
-            if isinstance(scene, dict) and "with" in scene:
-                return scene["with"]
 
         # Fallback for full spec format
         if isinstance(example_data, dict) and "scenes" in example_data:
             scenes = example_data["scenes"]
             if isinstance(scenes, list) and len(scenes) > 0:
-                scene = scenes[0]
-                if isinstance(scene, dict) and "with" in scene:
-                    return scene["with"]
+                return scenes[0]
 
-        return {}
+        raise ValueError("Could not find a valid scene block in example.yaml")
     except Exception as e:
         print(f"Error loading or parsing example for {template_name}: {e}")
-        return {}
+        raise
 
 
 def create_template_screenshot(
@@ -120,11 +112,10 @@ def create_template_screenshot(
     """Create a screenshot for a template and return the path to the image."""
     print(f"Generating screenshot for template: {template_name}")
 
-    # Extract parameters from example.yaml
-    template_params = extract_yaml_from_example(template_name, manager)
-    if not template_params:
-        print(f"Warning: No parameters found for {template_name}, using empty")
-        template_params = {}
+    # Extract the entire scene block from example.yaml
+    scene_block = extract_scene_block_from_example(template_name, manager)
+    # Ensure it has a unique ID for processing
+    scene_block["id"] = f"demo_{template_name}"
 
     # Setup video settings
     settings = VideoSettings(
@@ -140,7 +131,7 @@ def create_template_screenshot(
         temp_path = Path(temp_dir)
         spec_file = temp_path / "temp_spec.yaml"
 
-        # Create spec content
+        # Create spec content using the full scene block from the example
         spec_content = {
             "settings": {
                 "width": settings.width,
@@ -149,14 +140,7 @@ def create_template_screenshot(
                 "output_file": "temp.mp4",
                 "font": settings.font,
             },
-            "scenes": [
-                {
-                    "type": "template",
-                    "name": template_name,
-                    "id": f"demo_{template_name}",
-                    "with": template_params,
-                }
-            ],
+            "scenes": [scene_block],
         }
 
         # Write spec file
@@ -165,27 +149,17 @@ def create_template_screenshot(
 
         # Load and process the spec
         spec, spec_dict = load_spec(spec_file, temp_path)
+        template_scene = spec.scenes[0]
 
-        # Create Jinja environment for template processing
+        # The loader has already created the TemplateScene, now we need to
+        # load its internal spec to prepare it for rendering.
         jinja_env = Environment()
-
-        # Create template scene
-        scene_data = spec_dict["scenes"][0]
-        template_scene = TemplateScene.from_dict(scene_data, temp_path)
+        assert isinstance(template_scene, TemplateScene)
         template_scene._load_internal_spec(settings, jinja_env, manager)
 
         # Prepare assets and resolve durations
         assets = template_scene.prepare()
-
-        # Resolve duration for the template scene
         template_scene.resolve_duration(None, assets, settings)
-
-        # Resolve durations for internal scenes
-        assert template_scene.internal_spec is not None
-        for internal_scene in template_scene.internal_spec.scenes:
-            internal_scene.resolve_duration(
-                template_scene._calculated_duration, assets, settings
-            )
 
         # Render the scene
         clip = template_scene.render(assets, settings)
@@ -420,15 +394,7 @@ def main():
             else:
                 template_dir = template_manager.resolve(template_name)
 
-            # Extract parameters from example.yaml
-            template_params = extract_yaml_from_example(
-                template_name, template_manager
-            )
-            if not template_params:
-                print(f"Warning: No parameters found for {template_name}")
-                template_params = {}
-
-            # Generate README file
+            # Generate README file first
             generate_readme_file(template_name, template_dir, template_manager)
 
             # Create screenshot
@@ -436,6 +402,12 @@ def main():
                 template_name, template_dir, template_manager
             )
             print(f"Screenshot saved to: {image_path}")
+
+            # Extract 'with' parameters for overview, if they exist
+            scene_block = extract_scene_block_from_example(
+                template_name, template_manager
+            )
+            template_params = scene_block.get("with", {})
 
             # Format parameters for overview
             parameters_str = format_parameters(template_params)

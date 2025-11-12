@@ -1,0 +1,13 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+    <!-- This template just renders centered text. The animation is handled by Sceneweaver effects. -->
+    <text
+        x="50%"
+        y="50%"
+        font-family="{{ font_family | default('DejaVu Sans, Arial, sans-serif') }}"
+        font-size="90"
+        fill="white"
+        text-anchor="middle"
+        dominant-baseline="middle">
+        {{ text }}
+    </text>
+</svg>

@@ -1,70 +1,73 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, cast
 
-import numpy as np
-from PIL import Image
-from moviepy import VideoClip
+from moviepy import VideoClip, ColorClip, CompositeVideoClip
+from moviepy.video.fx import Resize
 
-from ..zoom_spec import ZoomSpec
 from .base_effect import BaseEffect
 
 
 class ZoomEffect(BaseEffect):
-    """Handles a zoom effect on a clip."""
+    """
+    Handles a smooth, centered zoom effect on a clip. It ensures the output
+    is always a full-sized, centered clip, making it safe for transitions.
+    """
 
     def __init__(
         self,
         type: str,
         duration: Optional[float] = None,
-        start_rect: Optional[Tuple[int, int, int, int]] = None,
-        end_rect: Optional[Tuple[int, int, int, int]] = None,
+        start_zoom: float = 1.0,
+        end_zoom: float = 1.0,
     ):
         super().__init__(type, duration or 0)
-        self.zoom_spec = ZoomSpec(
-            start_rect=start_rect or (0, 0, 100, 100),
-            end_rect=end_rect or (0, 0, 100, 100),
-        )
+        self.start_zoom = start_zoom
+        self.end_zoom = end_zoom
 
     def apply(self, clip: VideoClip) -> VideoClip:
-        zoom_duration = self.duration if self.duration > 0 else clip.duration
-        clip_w, clip_h = clip.size
+        zoom_duration = (
+            self.duration if self.duration > 0 else (clip.duration or 0)
+        )
 
-        start_x, start_y, start_w, start_h = self.zoom_spec.start_rect
-        end_x, end_y, end_w, end_h = self.zoom_spec.end_rect
+        def resize_func(t):
+            """Calculates the new size of the clip at time `t`."""
+            progression = (
+                min(1.0, t / zoom_duration) if zoom_duration > 0 else 1.0
+            )
+            current_zoom = (
+                self.start_zoom
+                + (self.end_zoom - self.start_zoom) * progression
+            )
 
-        def zoom_func(get_frame, t):
-            frame = get_frame(t)
+            new_width = max(1, int(clip.size[0] * current_zoom))
+            new_height = max(1, int(clip.size[1] * current_zoom))
 
-            progression = min(1.0, t / zoom_duration)
+            return (new_width, new_height)
 
-            # Interpolate rect values
-            curr_x = start_x + progression * (end_x - start_x)
-            curr_y = start_y + progression * (end_y - start_y)
-            curr_w = start_w + progression * (end_w - start_w)
-            curr_h = start_h + progression * (end_h - start_h)
+        # Instantiate the Resize effect
+        resize_effect = Resize(resize_func)
 
-            # Convert from percent to pixels
-            x_pix = int(clip_w * curr_x / 100)
-            y_pix = int(clip_h * curr_y / 100)
-            w_pix = int(clip_w * curr_w / 100)
-            h_pix = int(clip_h * curr_h / 100)
+        # Apply the effect using the robust with_effects() method
+        resized_clip = cast(VideoClip, clip.with_effects([resize_effect]))
 
-            # Crop with numpy slicing
-            cropped_frame = frame[y_pix : y_pix + h_pix, x_pix : x_pix + w_pix]
+        # Manually composite the resized clip onto a full-sized transparent
+        # canvas. This guarantees the output is always centered and full-size,
+        # preventing "drift" during transitions.
+        canvas = ColorClip(
+            size=clip.size, color=(0, 0, 0), duration=clip.duration
+        ).with_opacity(0)
 
-            # Resize back to original size using PIL
-            pil_img = Image.fromarray(cropped_frame)
-            resized_img = pil_img.resize(clip.size, Image.Resampling.LANCZOS)
-            return np.array(resized_img)
+        # The resized_clip is already a new object, so we can position it.
+        centered_clip = CompositeVideoClip(
+            [canvas, resized_clip.with_position("center")]
+        )
 
-        # Use transform, which creates a new clip with transformed frames.
-        return clip.transform(zoom_func)
+        return cast(VideoClip, centered_clip)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ZoomEffect":
-        zoom_spec = ZoomSpec.from_dict(data)
         return cls(
             type=data["type"],
             duration=data.get("duration"),
-            start_rect=zoom_spec.start_rect,
-            end_rect=zoom_spec.end_rect,
+            start_zoom=data.get("start_zoom", 1.0),
+            end_zoom=data.get("end_zoom", 1.0),
         )

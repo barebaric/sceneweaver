@@ -1,0 +1,22 @@
+parameters:
+  slides:
+    type: list
+    description: "A list of slide objects. Each object must have 'text' and 'duration' keys."
+    optional: false
+
+  animation_duration:
+    type: float
+    description: "The duration in seconds for the initial zoom and fade-in animation for each slide."
+    optional: true
+    default: 0.3
+
+  transition_duration:
+    type: float
+    description: "The duration in seconds for the cross-fade transition between slides."
+    optional: true
+    default: 0.2
+
+  font:
+    type: string
+    description: "The font to use for the slide text. Defaults to the global font setting."
+    optional: true

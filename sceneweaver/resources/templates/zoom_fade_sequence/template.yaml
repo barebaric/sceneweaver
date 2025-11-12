@@ -1,0 +1,27 @@
+{% for slide in slides %}
+- type: svg
+  id: slide_{{ loop.index }}
+  duration: {{ slide.duration | default(1) }}
+  template: "slide.svg"
+  
+  params:
+    text: "{{ slide.text }}"
+    font_family: "{{ font }}"
+
+  effects:
+    # A zoom effect to animate the scale from 50% to 100%.
+    # We achieve this by defining a crop rectangle that starts at 200%
+    # of the view ('zoomed out') and animates to 100% ('normal view').
+    - type: zoom
+      duration: {{ animation_duration | default(0.3) }}
+      start_zoom: 0.4
+      end_zoom: 1.0
+
+{% if not loop.last %}
+  # Add a transition between this slide and the next one.
+  transition:
+    type: cross-fade
+    duration: {{ transition_duration | default(0.2) }}
+{% endif %}
+
+{% endfor %}

@@ -30,3 +30,4 @@ scenes:
 - `duration` (number): The duration of the scene in seconds. (optional), default: '5'
 - `accent_color` (string): The color of the animated overlay shapes. (optional), default: '#3498db'
 - `background_color` (string): The background color if no image is provided. (optional), default: '#000000'
+- `font` (string): Font family to use (inherited from global settings) (optional), default: 'the global font'

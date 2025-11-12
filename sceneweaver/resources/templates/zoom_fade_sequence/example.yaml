@@ -1,0 +1,15 @@
+scenes:
+  - type: template
+    name: zoom_fade_sequence
+    id: my_zoom_fade_sequence
+    with:
+      animation_duration: 0.4
+      transition_duration: 0.25
+
+      # Provide the content for each slide.
+      slides:
+        - text: 'Rapidly Animating In'
+        - text: 'This is the Second Slide'
+        - text: 'This is the Third Slide'
+          duration: 2
+        - text: 'And Finally, the last'

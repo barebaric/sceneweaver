@@ -1,8 +1,8 @@
-import re
 from typing import Dict, Any, Optional, List, TYPE_CHECKING, Set
 from pathlib import Path
 from ruamel.yaml import YAML
 from jinja2 import Environment
+from jinja2.meta import find_undeclared_variables
 from moviepy import VideoClip
 from ...errors import ValidationError
 from ...renderer import render_scene_list_to_clip
@@ -87,6 +87,14 @@ class TemplateScene(BaseScene):
 
         return super()._get_fixed_duration(assets, settings)
 
+    @staticmethod
+    def _get_implicit_template_params() -> Set[str]:
+        """
+        Returns a set of parameter names that are implicitly available in a
+        template's Jinja context. These are fundamental scene properties.
+        """
+        return {"duration", "font", "frames"}
+
     def _validate_template_params(self, template_dir: Path):
         """
         Validates that parameters used in template.yaml match those defined in
@@ -98,52 +106,46 @@ class TemplateScene(BaseScene):
             return
 
         template_path = template_dir / "template.yaml"
-
-        if not params_path.is_file():
-            raise ValidationError(
-                f"Template '{self.name}' is missing a 'params.yaml' file."
-            )
-
         if not template_path.is_file():
             raise ValidationError(
                 f"Template '{self.name}' is missing a 'template.yaml' file."
             )
 
-        # Load params.yaml to get expected parameters
+        # Load params.yaml to get defined parameters
         yaml_parser = YAML(typ="safe")
         with open(params_path, "r", encoding="utf-8") as f:
-            params_data = yaml_parser.load(f)
+            params_data = yaml_parser.load(f) or {}
 
-        if not params_data or "parameters" not in params_data:
-            raise ValidationError(
-                f"Template '{self.name}' has an invalid 'params.yaml' file. "
-                "It must contain a 'parameters' section."
-            )
+        if "parameters" in params_data and isinstance(
+            params_data.get("parameters"), dict
+        ):
+            defined_params = set(params_data["parameters"].keys())
+        else:
+            defined_params = set()
 
-        expected_params = set(params_data["parameters"].keys())
-        expected_params.add("font")
+        # Retrieve implicit parameters available in the Jinja context.
+        # 'font' is from global settings; others are fundamental scene
+        # properties.
+        implicit_params = self._get_implicit_template_params()
+        implicit_params.add("font")
+        expected_params = defined_params.union(implicit_params)
 
         # Load template.yaml to find used parameters
         with open(template_path, "r", encoding="utf-8") as f:
             template_content = f.read()
 
-        # Find all Jinja2 variables in the template
-        # Pattern to match the following patterns:
-        #   {{ variable_name }}
-        #   {{ variable_name | filter(...) }}
-        var_pattern = r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\||\}\})"
-        used_params = set(re.findall(var_pattern, template_content))
+        # Use Jinja's parser to reliably find all undeclared variables
+        env = Environment()
+        try:
+            ast = env.parse(template_content)
+            used_params = find_undeclared_variables(ast)
+        except Exception as e:  # Catch potential Jinja parsing errors
+            raise ValidationError(
+                f"Template '{self.name}' has a syntax error in "
+                f"'template.yaml': {e}"
+            ) from e
 
-        # Also find variables used in Jinja2 control structures
-        # Pattern to match patterns like:
-        #   {% for item in items %}
-        #   {% if variable %}
-        control_pattern = (
-            r"\{%\s*(?:for|if)\s+.*\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*%\}"
-        )
-        used_params.update(re.findall(control_pattern, template_content))
-
-        # Check for parameters used in template but not defined in params.yaml
+        # Check for parameters used in template but not defined
         undefined_params = used_params - expected_params
         if undefined_params:
             raise ValidationError(
@@ -152,18 +154,13 @@ class TemplateScene(BaseScene):
                 f"These parameters are not defined in 'params.yaml'."
             )
 
-        # Check for required parameters defined in params.yaml but not used in
-        # template
-        unused_params = []
-        for param_name in expected_params:
-            if param_name not in used_params:
-                unused_params.append(param_name)
-
-        if unused_params:
+        # Check for parameters defined in params.yaml but not used in template
+        unused_defined_params = defined_params - used_params
+        if unused_defined_params:
             raise ValidationError(
                 f"Template '{self.name}' specifies parameters in "
                 f"`params.yaml` that are not used in the template: "
-                f"{', '.join(sorted(unused_params))}."
+                f"{', '.join(sorted(unused_defined_params))}."
             )
 
     def _load_internal_spec(
@@ -311,28 +308,40 @@ class TemplateScene(BaseScene):
         )
         print(f"Rendering internal scenes for template '{self.id}'...")
 
-        internal_clips: List[VideoClip] = []
-        for internal_scene in self.internal_spec.scenes:
-            assert internal_scene._calculated_duration is not None
-            clip = internal_scene.render(assets, settings)
-            if clip:
-                internal_clips.append(clip)
-
-        if not internal_clips:
-            print(f"Warning: Template '{self.id}' produced no video clips.")
+        internal_scenes = self.internal_spec.scenes
+        if not internal_scenes:
             return None
 
-        # Assemble and return. The main generator applies this scene's audio.
-        final_clip = render_scene_list_to_clip(
-            self.internal_spec.scenes, internal_clips
-        )
+        # Render raw clips first
+        base_clips: List[Optional[VideoClip]] = []
+        for scene in internal_scenes:
+            assert scene._calculated_duration is not None
+            base_clips.append(scene.render(assets, settings))
+
+        # Apply effects to each internal clip
+        effect_clips: List[VideoClip] = []
+        for i, scene in enumerate(internal_scenes):
+            modified_clip = base_clips[i]
+            if modified_clip:
+                if scene.effects:
+                    for effect in scene.effects:
+                        if effect.is_consumed:
+                            continue
+                        modified_clip = effect.apply(modified_clip)
+                effect_clips.append(modified_clip)
+
+        if not effect_clips:
+            return None
+
+        # Assemble the final clip with transitions
+        final_clip = render_scene_list_to_clip(internal_scenes, effect_clips)
+
         if final_clip:
             return final_clip.with_duration(self._calculated_duration)
         return None
 
     def to_dict(self) -> Dict[str, Any]:
         """Creates a serializable dictionary representation for caching."""
-        # Use the stored rendered_yaml for the hash
         return {
             "type": self.type,
             "id": self.id,

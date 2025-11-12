@@ -28,3 +28,4 @@ scenes:
 - `subtitle_color` (string): Color for the subtitle (optional), default: '#cccccc'
 - `subtitle_font` (string): Font for the subtitle (optional)
 - `duration` (number): Duration in seconds for the scene (optional), default: 'auto'
+- `font` (string): Font family to use (inherited from global settings) (optional), default: 'the global font'

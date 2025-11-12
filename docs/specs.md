@@ -18,6 +18,7 @@ This document details the structure and all available options for the specificat
     - [Video Scene](#video-scene)
     - [Video-Images Scene](#video-images-scene)
     - [SVG Scene](#svg-scene)
+    - [Composite Scene](#composite-scene)
     - [Template Scene](#template-scene)
 6.  [Complete Example](#complete-example)
 
@@ -120,21 +121,21 @@ This is a list of scene objects. SceneWeaver processes them sequentially to buil
 
 These attributes can be applied to any scene type.
 
-| Key          | Type              | Description                                                                                                  |
-| ------------ | ----------------- | ------------------------------------------------------------------------------------------------------------ |
-| `id`         | string            | **Required.** A unique identifier for the scene. Used for caching and targeting scenes via the CLI.          |
-| `type`       | string            | **Required.** The type of the scene. Must be one of: `image`, `video`, `video-images`, `svg`, or `template`. |
-| `duration`   | number            | The duration of the scene in seconds. Not required if `frames` is set or if the                              |
-|              |                   | scene's duration is determined by its audio.                                                                 |
-| `frames`     | integer           | The duration of the scene in frames. `duration` is calculated as `frames / settings.fps`.                    |
-| `audio`      | list of objects   | A list of audio tracks to play during the scene. Each object can have `file` (path)                          |
-|              |                   | and `shift` (in seconds, can be negative).                                                                   |
-| `transition` | object            | A transition to play _after_ this scene ends and before the next one begins.                                 |
-|              |                   | Specify `type` and `duration`.                                                                               |
-| `effects`    | list of objects   | A list of effects to apply to this scene. See "Available Effects" below.                                     |
-| `cache`      | boolean or object | Caching policy for this scene. `true` enables caching with default settings. An                              |
-|              |                   | object with `max-size` (e.g., `500MB`) provides fine-grained control. `false`                                |
-|              |                   | disables it.                                                                                                 |
+| Key              | Type              | Description                                                                                                  |
+| ---------------- | ----------------- | ------------------------------------------------------------------------------------------------------------ |
+| `id`             | string            | **Required.** A unique identifier for the scene. Used for caching and targeting scenes via the CLI.          |
+| `type`           | string            | **Required.** The type of the scene. Must be one of: `image`, `video`, `video-images`, `svg`, or `template`. |
+| `duration`       | number or string  | The duration of the scene in seconds. Can also be a percentage (`"50%"`) or `"auto"`.                        |
+| `frames`         | integer           | The duration of the scene in frames. `duration` is calculated as `frames / settings.fps`.                    |
+| `audio`          | list of objects   | A list of audio tracks to play during the scene. Each object can have `file` (path)                          |
+|                  |                   | and `shift` (in seconds, can be negative).                                                                   |
+| `transition`     | object            | A transition to play _after_ this scene ends and before the next one begins.                                 |
+|                  |                   | Specify `type` and `duration`.                                                                               |
+| `effects`        | list of objects   | A list of effects to apply to this scene. See "Available Effects" below.                                     |
+| `cache`          | boolean or object | Caching policy for this scene. `true` enables caching with default settings. An                              |
+|                  |                   | object with `max-size` (e.g., `500MB`) provides fine-grained control. `false`                                |
+|                  |                   | disables it.                                                                                                 |
+| `composite_mode` | string            | Used within a `composite` scene. Can be `layer` (default), `exclude` (masking), or `include` (masking).      |
 
 ### Available Effects
 
@@ -162,12 +163,12 @@ The `effects` list accepts objects with a `type` and other parameters.
       side: top
   ```
 
-- **`accel-decel`**: Changes the speed of the clip to fit a new duration, with easing at the start and end.
+- **`accel-decel`**: Changes the speed of the clip to fit a new duration, with an easing curve.
 
   - `duration` (number, **required**): The target duration for the clip in seconds.
-  - `abruptness` (number, optional): How abruptly the speed changes. `1.0` is linear. `> 1` is more abrupt. Defaults to `1.0`.
-  - `soonness` (number, optional): When the speed change happens. `1.0` is centered. `> 1` is sooner. Defaults to `1.0`.
-  - `min_speed` (number, optional): Set a minimum speed. Only affects SVG based animations.
+  - `abruptness` (number, optional): Controls the easing curve. `> 0` for slow-fast-slow, `< 0` for fast-slow-fast. Defaults to `1.5`.
+  - `soonness` (number, optional): When the speed change happens. Only for `abruptness > 0`. Defaults to `1.0`.
+  - `min_speed` (number, optional): Minimum speed (`0.0` to `1.0`) to prevent stopping. Only for SVG scenes. Defaults to `0.0`.
 
   ```yaml
   effects:
@@ -191,17 +192,17 @@ The `effects` list accepts objects with a `type` and other parameters.
       y_speed: -50 # pixels per second upwards
   ```
 
-- **`zoom`**: Creates a "Ken Burns" style zoom and pan effect.
+- **`zoom`**: Creates a smooth, centered zoom effect.
   - `duration` (number, optional): Duration of the zoom. Defaults to the clip's full duration.
-  - `start_rect` (list, **required**): The starting rectangle `[x, y, width, height]` in percent of the frame.
-  - `end_rect` (list, **required**): The ending rectangle `[x, y, width, height]` in percent of the frame.
+  - `start_zoom` (float, optional): The starting zoom factor. `1.0` is normal size. `2.0` is zoomed in 2x. Defaults to `1.0`.
+  - `end_zoom` (float, optional): The ending zoom factor. Defaults to `1.0`.
   ```yaml
   effects:
-    # Zoom from full frame into the top-left quadrant over 5 seconds
+    # Zoom in from normal size to 2x over 5 seconds.
     - type: zoom
       duration: 5
-      start_rect: [0, 0, 100, 100]
-      end_rect: [0, 0, 50, 50]
+      start_zoom: 1.0
+      end_zoom: 2.0
   ```
 
 ---
@@ -215,18 +216,18 @@ Displays a static image. Its duration must be specified with `duration`, `frames
 
 **Specific Attributes:**
 
-| Key           | Type            | Description                                                                     |
-| ------------- | --------------- | ------------------------------------------------------------------------------- |
-| `image`       | string          | **Required.** Path to the image file.                                           |
-| `stretch`     | boolean         | If `true` (default), the image is stretched to fill the screen. If `false`, its |
-|               |                 | aspect ratio is preserved.                                                      |
-| `position`    | any             | How to position the image when `stretch: false`. Can be `"center"`, `("left",   |
-|               |                 | "top")`, or `(x, y)` pixels.                                                    |
-| `width`       | number          | When `stretch: false`, resizes the image to a percentage of the screen width    |
-|               |                 | (e.g., `80`).                                                                   |
-| `height`      | number          | When `stretch: false`, resizes the image to a percentage of the screen height.  |
-| `bg_color`    | string          | Background color to show behind a non-stretched image. Defaults to `black`.     |
-| `annotations` | list of objects | A list of text or highlight overlays to draw on top of the image.               |
+| Key           | Type            | Description                                                                                                |
+| ------------- | --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `image`       | string          | **Required.** Path to the image file.                                                                      |
+| `stretch`     | boolean         | If `true` (default), the image is stretched to fill the screen. If `false`, its                            |
+|               |                 | aspect ratio is preserved.                                                                                 |
+| `position`    | any             | How to position the image when `stretch: false`. Can be `"center"`, `("left",                              |
+|               |                 | "top")`, or `(x, y)` pixels.                                                                               |
+| `width`       | number          | When `stretch: false`, resizes the image to a percentage of the screen width                               |
+|               |                 | (e.g., `80`).                                                                                              |
+| `height`      | number          | When `stretch: false`, resizes the image to a percentage of the screen height.                             |
+| `bg_color`    | string          | Background color to show behind a non-stretched image. Defaults to `black`. Can be `none` for transparent. |
+| `annotations` | list of objects | A list of text or highlight overlays to draw on top of the image.                                          |
 
 **Example:**
 
@@ -301,7 +302,7 @@ Renders an animated SVG file. The SVG file can contain Jinja2 template variables
 | `params`       | object | An object of key-value pairs that are passed into the SVG file as Jinja2 |
 |                |        | variables, allowing for dynamic, animated graphics.                      |
 | `composite_on` | string | The background color to render the (potentially transparent) SVG on      |
-|                |        | top of. Defaults to `black`.                                             |
+|                |        | top of. Defaults to `black`. Can be `null` or `none` for transparent.    |
 
 **Example:**
 
@@ -313,6 +314,38 @@ Renders an animated SVG file. The SVG file can contain Jinja2 template variables
   params:
     line1: Hello, Animated SVG!
     line2: This text is dynamic.
+```
+
+### Composite Scene
+
+A powerful scene type that layers other scenes on top of each other. This is the key to creating complex visual effects like picture-in-picture or knockout text.
+
+**Specific Attributes:**
+
+| Key      | Type | Description                                                                        |
+| -------- | ---- | ---------------------------------------------------------------------------------- |
+| `scenes` | list | **Required.** A list of child scenes to be layered. The first scene in the list is |
+|          |      | the bottom-most layer (the background).                                            |
+
+**Example (Knockout Text):**
+
+```yaml
+- type: composite
+  id: knockout_example
+  duration: 5
+  scenes:
+    # Layer 1: The background that will show through the hole
+    - type: video
+      id: background_video
+      file: background.mp4
+
+    # Layer 2: The text that will be used to "punch the hole"
+    - type: svg
+      id: text_stencil
+      template: text.svg
+      params:
+        content: KNOCKOUT
+      composite_mode: exclude # This punches a hole in the layer above it
 ```
 
 ### Template Scene

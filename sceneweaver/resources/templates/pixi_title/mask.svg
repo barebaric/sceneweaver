@@ -17,10 +17,10 @@
 
     <!-- White text shapes -->
     <g>
-        <text x="960" y="{{ box_y + box_h * 0.3 }}" font-family="DejaVu Sans, sans-serif" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
+        <text x="960" y="{{ box_y + box_h * 0.3 }}" font-family="{{ font }}" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
             {{ line1 }}
         </text>
-        <text x="960" y="{{ box_y + box_h * 0.7 }}" font-family="DejaVu Sans, sans-serif" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
+        <text x="960" y="{{ box_y + box_h * 0.7 }}" font-family="{{ font }}" font-size="75" font-weight="bold" fill="white" text-anchor="middle" dominant-baseline="middle">
             {{ line2 }}
         </text>
     </g>

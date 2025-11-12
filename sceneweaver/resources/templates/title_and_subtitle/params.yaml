@@ -29,3 +29,8 @@ parameters:
     description: "Duration in seconds for the scene"
     optional: true
     default: "auto"
+  font:
+    type: string
+    description: Font family to use (inherited from global settings)
+    optional: true
+    default: the global font

@@ -27,3 +27,8 @@ parameters:
     description: "The background color if no image is provided."
     optional: true
     default: "#000000"
+  font:
+    type: string
+    description: Font family to use (inherited from global settings)
+    optional: true
+    default: the global font

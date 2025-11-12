@@ -33,6 +33,7 @@ class ImageScene(BaseScene):
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
         audio: Optional[List[AudioTrackSpec]] = None,
+        composite_mode: str = "layer",
     ):
         super().__init__(
             "image",
@@ -43,6 +44,7 @@ class ImageScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio,
+            composite_mode=composite_mode,
         )
         self.duration = duration
         self.frames = frames
@@ -52,7 +54,19 @@ class ImageScene(BaseScene):
         self.position = position
         self.width = width
         self.height = height
-        self.bg_color = ImageColor.getrgb(bg_color)
+        self.is_bg_transparent = bg_color.lower() == "none"
+
+        if not self.is_bg_transparent:
+            try:
+                self.bg_color = ImageColor.getrgb(bg_color)
+            except ValueError as e:
+                scene_id_str = f" '{id}'" if id else ""
+                raise ValidationError(
+                    f"In ImageScene{scene_id_str}, found an invalid bg_color "
+                    f"specifier: '{bg_color}'"
+                ) from e
+        else:
+            self.bg_color = (0, 0, 0)  # Placeholder, not used
 
     def validate(self):
         super().validate()
@@ -115,11 +129,20 @@ class ImageScene(BaseScene):
                 assert isinstance(resized_clip, VideoClip)
                 processed_clip = resized_clip
 
-            background = ColorClip(
-                canvas_size,
-                color=self.bg_color,
-                duration=self._calculated_duration,
-            )
+            if self.is_bg_transparent:
+                # Create a fully transparent background
+                background = ColorClip(
+                    canvas_size,
+                    color=(0, 0, 0),
+                    duration=self._calculated_duration,
+                ).with_opacity(0)
+            else:
+                background = ColorClip(
+                    canvas_size,
+                    color=self.bg_color,
+                    duration=self._calculated_duration,
+                )
+
             positioned_content = processed_clip.with_position(self.position)
             return CompositeVideoClip([background, positioned_content])
 
@@ -269,6 +292,7 @@ class ImageScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio_tracks,
+            composite_mode=data.get("composite_mode", "layer"),
         )
         instance.validate()
         return instance

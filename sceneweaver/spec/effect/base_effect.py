@@ -8,6 +8,8 @@ class BaseEffect:
     def __init__(self, type: str, duration: float):
         self.type = type
         self.duration = duration
+        self.has_progress_transform = False
+        self.is_consumed = False
 
     def apply(self, clip: VideoClip) -> VideoClip:
         """
@@ -18,6 +20,13 @@ class BaseEffect:
             f"The apply method for effect type '{self.type}' is "
             "not implemented."
         )
+
+    def transform_progress(self, linear_progress: float) -> float:
+        """
+        Allows an effect to modify the progress variable for scenes that
+        support it (like SvgScene). By default, it does nothing.
+        """
+        return linear_progress
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "BaseEffect":

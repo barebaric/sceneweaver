@@ -23,6 +23,7 @@ class VideoImagesScene(BaseScene):
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
         audio: Optional[List[AudioTrackSpec]] = None,
+        composite_mode: str = "layer",
     ):
         super().__init__(
             "video-images",
@@ -33,6 +34,7 @@ class VideoImagesScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio,
+            composite_mode=composite_mode,
         )
         self.fps = fps
         self.file = file
@@ -151,4 +153,5 @@ class VideoImagesScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio_tracks,
+            composite_mode=data.get("composite_mode", "layer"),
         )

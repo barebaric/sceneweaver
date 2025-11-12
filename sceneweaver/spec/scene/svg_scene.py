@@ -26,6 +26,7 @@ class SvgScene(BaseScene):
         transition: Optional[BaseTransition] = None,
         audio: Optional[List[AudioTrackSpec]] = None,
         composite_on: Optional[str] = "black",
+        composite_mode: str = "layer",
     ):
         super().__init__(
             "svg",
@@ -35,17 +36,25 @@ class SvgScene(BaseScene):
             effects=effects,
             transition=transition,
             audio=audio,
+            composite_mode=composite_mode,
         )
         self.duration = duration
         self.template = template
         self.params = params or {}
-        # Convert the color string to an RGB tuple upon initialization
         self.composite_on: Optional[Tuple[int, int, int]] = None
-        if composite_on:
-            # getrgb can return RGBA, but ColorClip only wants RGB.
-            # So we slice the result to ensure we only get the first 3 values.
-            rgba_or_rgb = ImageColor.getrgb(composite_on)
-            self.composite_on = rgba_or_rgb[:3]
+
+        # Allow 'none' string as an alias for null/None for transparency
+        if composite_on and str(composite_on).lower() != "none":
+            try:
+                # getrgb can return RGBA, but ColorClip only wants RGB.
+                rgba_or_rgb = ImageColor.getrgb(composite_on)
+                self.composite_on = rgba_or_rgb[:3]
+            except ValueError as e:
+                scene_id_str = f" '{id}'" if id else ""
+                raise ValidationError(
+                    f"In SvgScene{scene_id_str}, found an invalid "
+                    f"composite_on color specifier: '{composite_on}'"
+                ) from e
 
     def validate(self):
         super().validate()
@@ -91,14 +100,26 @@ class SvgScene(BaseScene):
             print(f"Rendering {total_frames} frames for scene '{self.id}'...")
             for i in range(total_frames):
                 timestamp = i / settings.fps
+                linear_progress = (
+                    timestamp / self._calculated_duration
+                    if self._calculated_duration > 0
+                    else 0
+                )
+
+                # Apply progress-transforming effects
+                modified_progress = linear_progress
+                for effect in self.effects:
+                    new_progress = effect.transform_progress(modified_progress)
+                    if new_progress != modified_progress:
+                        effect.is_consumed = True
+                    modified_progress = new_progress
+
                 context = {
                     **self.params,
                     "timestamp": timestamp,
                     "frame": i,
                     "duration": self._calculated_duration,
-                    "progress": timestamp / self._calculated_duration
-                    if self._calculated_duration > 0
-                    else 0,
+                    "progress": modified_progress,
                 }
                 rendered_svg_str = template.render(context)
                 output_path = temp_dir / f"frame_{i:05d}.png"
@@ -178,6 +199,7 @@ class SvgScene(BaseScene):
             transition=transition,
             audio=audio_tracks,
             composite_on=data.get("composite_on", "black"),
+            composite_mode=data.get("composite_mode", "layer"),
         )
         instance.validate()
         return instance

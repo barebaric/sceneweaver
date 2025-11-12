@@ -164,15 +164,16 @@ The `effects` list accepts objects with a `type` and other parameters.
 
 - **`accel-decel`**: Changes the speed of the clip to fit a new duration, with easing at the start and end.
 
-  - `new_duration` (number, **required**): The target duration for the clip in seconds.
+  - `duration` (number, **required**): The target duration for the clip in seconds.
   - `abruptness` (number, optional): How abruptly the speed changes. `1.0` is linear. `> 1` is more abrupt. Defaults to `1.0`.
   - `soonness` (number, optional): When the speed change happens. `1.0` is centered. `> 1` is sooner. Defaults to `1.0`.
+  - `min_speed` (number, optional): Set a minimum speed. Only affects SVG based animations.
 
   ```yaml
   effects:
     # Make a 5s clip play in 3s with easing
     - type: accel-decel
-      new_duration: 3
+      duration: 3
       abruptness: 1.5
   ```
 

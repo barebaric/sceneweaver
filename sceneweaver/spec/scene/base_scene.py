@@ -29,6 +29,7 @@ class BaseScene:
         effects: Optional[List[BaseEffect]] = None,
         transition: Optional[BaseTransition] = None,
         audio: Optional[List[AudioTrackSpec]] = None,
+        composite_mode: str = "layer",
     ):
         self.type = type
         self.id = id
@@ -41,6 +42,7 @@ class BaseScene:
         self.duration: Optional[Union[float, str]] = None
         self.frames: Optional[int] = None
         self._calculated_duration: Optional[float] = None
+        self.composite_mode = composite_mode
 
     def validate(self):
         """Validates the scene's configuration."""
@@ -140,6 +142,9 @@ class BaseScene:
             effective_context = self._get_duration_from_audio(assets)
 
         if effective_context is None:
+            # If a scene has a relative duration but no context, it's an error.
+            # Parent scenes (Composite, Template) will catch this and provide
+            # a context calculated from their children if needed.
             raise ValidationError(
                 f"Scene '{self.id}' has a relative duration but no context "
                 "was available. Add an 'audio' track to this scene or place "
@@ -228,6 +233,8 @@ class BaseScene:
     @classmethod
     def _get_scene_types(cls) -> Dict[str, Type["BaseScene"]]:
         """Central registry of scene types."""
+        from .color_scene import ColorScene
+        from .composite_scene import CompositeScene
         from .image_scene import ImageScene
         from .svg_scene import SvgScene
         from .template_scene import TemplateScene
@@ -235,6 +242,8 @@ class BaseScene:
         from .video_images_scene import VideoImagesScene
 
         return {
+            "color": ColorScene,
+            "composite": CompositeScene,
             "image": ImageScene,
             "svg": SvgScene,
             "template": TemplateScene,

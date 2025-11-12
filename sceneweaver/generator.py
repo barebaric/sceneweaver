@@ -226,6 +226,8 @@ class VideoGenerator:
                 modified_clip = base_clips[i]
                 if scene.effects:
                     for effect in scene.effects:
+                        if effect.is_consumed:
+                            continue
                         print(
                             f"Applying effect '{effect.type}' "
                             f"({effect.duration}s) to scene '{scene.id}'"

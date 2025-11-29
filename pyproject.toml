@@ -33,7 +33,6 @@ dependencies = [
     "ruamel.yaml>=0.17,<0.19",
     "platformdirs>=4.5.0,<5",
     "sounddevice",
-    "noisereduce",
     "cairosvg",
     "jinja2",
     "Pillow>=10.0",
